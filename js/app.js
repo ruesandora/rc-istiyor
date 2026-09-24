@@ -7,7 +7,7 @@
   var TYPE_ORDER = ['bull', 'bear', 'hbull', 'hbear'];
   var TZ_SHIFT = 3 * 3600;          // Türkiye saati (UTC+3) grafikte gösterim için
   var FRESH_BARS = 10;
-  var REFRESH_MS = 60 * 1000, SCAN_MS = 5 * 60 * 1000, CACHE_MS = 45 * 1000;
+  var REFRESH_MS = 60 * 1000, SCAN_MS = 2 * 60 * 1000, CACHE_MS = 45 * 1000;
 
   var STORE_KEY = 'rc-rsi-div-v1';
   var saved = {};
@@ -61,7 +61,7 @@
 
   var chartOpts = {
     autoSize: true,
-    layout: { background: { type: 'solid', color: 'transparent' }, textColor: 'rgba(233,232,228,.55)', fontFamily: "'Inter Tight', 'Helvetica Neue', Arial, sans-serif", fontSize: 11 },
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: 'rgba(233,232,228,.68)', fontFamily: "'Inter Tight', 'Helvetica Neue', Arial, sans-serif", fontSize: 12 },
     grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(233,232,228,.05)' } },
     rightPriceScale: { borderVisible: false, minimumWidth: 72 },
     timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 6 },
@@ -127,10 +127,10 @@
     divSeries.forEach(function (s) { try { s.chart.removeSeries(s.series); } catch (e) { /* yok say */ } });
     divSeries = [];
   }
-  function addLine(chart, type, a, b) {
+  function addLine(chart, type, a, b, potential) {
     var t = TYPES[type];
     var s = chart.addLineSeries({
-      color: t.color, lineWidth: 2, lineStyle: t.hidden ? 2 : 0, lastPriceAnimation: 0,
+      color: potential ? t.color + 'aa' : t.color, lineWidth: 2, lineStyle: potential ? 1 : (t.hidden ? 2 : 0), lastPriceAnimation: 0,
       lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false
     });
     s.setData([{ time: a.time + TZ_SHIFT, value: a.v }, { time: b.time + TZ_SHIFT, value: b.v }]);
@@ -188,6 +188,15 @@
 
   // --- Analiz ve çizim -----------------------------------------------------
 
+  /** Yalnızca kapanmış mumlar (oluşan uyumsuzluk sunucudaki bildirimle aynı hesaplansın). */
+  function closedOf(candles, tf) {
+    if (!tf) return candles;
+    var step = TF[tf].seconds, now = Date.now() / 1000;
+    var n = candles.length;
+    while (n > 0 && candles[n - 1].time + step > now) n--;
+    return candles.slice(0, n);
+  }
+
   function analyze() {
     var candles = state.candles;
     if (!candles.length) return;
@@ -215,8 +224,16 @@
       addLine(rsiChart, x.type, { time: x.from.time, v: x.from.rsi }, { time: x.to.time, v: x.to.rsi });
       markers.push({ time: x.to.time + TZ_SHIFT, position: low ? 'belowBar' : 'aboveBar', color: t.color, shape: low ? 'arrowUp' : 'arrowDown', text: t.short });
     });
+    var pending = D.findPotential(closedOf(candles, state.mode === 'csv' ? null : state.tf), state.opts, res.rsi).filter(function (x) { return state.show[x.type]; });
+    pending.forEach(function (x) {
+      var t = TYPES[x.type], low = t.side === 'low';
+      addLine(priceChart, x.type, { time: x.from.time, v: x.from.price }, { time: x.to.time, v: x.to.price }, true);
+      addLine(rsiChart, x.type, { time: x.from.time, v: x.from.rsi }, { time: x.to.time, v: x.to.rsi }, true);
+      markers.push({ time: x.to.time + TZ_SHIFT, position: low ? 'belowBar' : 'aboveBar', color: t.color, shape: 'circle', text: t.short + '?' });
+    });
     markers.sort(function (a, b) { return a.time - b.time; });
     candleSeries.setMarkers(markers);
+    renderPending(pending);
 
     if (state.fitNext) {
       state.fitNext = false;
@@ -250,16 +267,34 @@
     }
 
     $('source').textContent = 'Kaynak: ' + state.source + ' · ' + n + ' mum · Saatler Türkiye saatidir (UTC+3). Uyumsuzluk, pivotun sağında ' + state.opts.right + ' mum oluştuktan sonra onaylanır.';
-    renderTable(visible, n);
+    renderTable(visible, n, pending);
   }
 
-  function renderTable(list, n) {
+  function renderPending(list) {
+    var el = $('pending');
+    if (!list.length) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    el.innerHTML = list.map(function (x) {
+      return '<span class="pending-tag">Oluşuyor</span>' + badge(x.type) + '<span class="mono">onaya ' + x.barsLeft + ' mum</span>';
+    }).join('<br>');
+  }
+
+  function renderTable(list, n, pending) {
     var body = $('sigBody');
-    $('sigCount').textContent = list.length ? list.length + ' kayıt' : '';
-    if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty">Uyumsuzluk bulunamadı.</td></tr>'; return; }
+    pending = pending || [];
+    $('sigCount').textContent = (list.length ? list.length + ' kayıt' : '') + (pending.length ? ' · ' + pending.length + ' oluşuyor' : '');
+    if (!list.length && !pending.length) { body.innerHTML = '<tr><td colspan="5" class="empty">Uyumsuzluk bulunamadı.</td></tr>'; return; }
     var tf = state.mode === 'csv' ? null : state.tf;
-    body.innerHTML = list.slice().reverse().map(function (x, k) {
+    body.innerHTML = pending.concat(list.slice().reverse()).map(function (x, k) {
       var cur = currency();
+      if (x.potential) {
+        return '<tr class="pot" data-i="' + x.to.i + '">' +
+          '<td>' + badge(x.type) + '</td>' +
+          '<td><span class="tag-pot">Oluşuyor</span></td>' +
+          '<td class="r">' + cur + fmtPrice(x.from.price) + '<span class="arrow">→</span>' + cur + fmtPrice(x.to.price) + '</td>' +
+          '<td class="r">' + fmtRsi(x.from.rsi) + '<span class="arrow">→</span>' + fmtRsi(x.to.rsi) + '</td>' +
+          '<td class="r">onaya ' + x.barsLeft + ' mum</td></tr>';
+      }
       return '<tr data-i="' + x.to.i + '">' +
         '<td>' + badge(x.type) + '</td>' +
         '<td>' + fmtDate(x.to.time, state.tf) + '</td>' +
@@ -287,7 +322,7 @@
       box.innerHTML = tfs.map(function (tf) {
         return '<button type="button" class="cell" data-tf="' + tf + '">' +
           '<span class="cell-tf"><span>' + TF[tf].label + '</span><span class="cell-rsi">RSI —</span></span>' +
-          '<span class="cell-sig none">Taranıyor</span><span class="cell-age">&nbsp;</span>' +
+          '<span class="cell-sig none">Taranıyor</span><span class="cell-age">&nbsp;</span><span class="cell-pot">&nbsp;</span>' +
           '<span class="cell-bar"><i style="left:50%"></i></span></button>';
       }).join('');
     }
@@ -309,6 +344,11 @@
         } else {
           sig.className = 'cell-sig none'; sig.textContent = 'Sessiz'; age.textContent = 'Uyumsuzluk yok';
         }
+        var pend = D.findPotential(closedOf(d.candles, tf), state.opts, res.rsi).filter(function (x) { return state.show[x.type]; });
+        cell.querySelector('.cell-pot').innerHTML = pend.length
+          ? pend.map(function (x) { return 'Oluşuyor: <b style="--c:' + TYPES[x.type].color + '">' + TYPES[x.type].label + '</b>'; }).join(' · ')
+          : '&nbsp;';
+        checkNotify(tf, d.candles);
         cell.querySelector('.cell-rsi').textContent = 'RSI ' + fmtRsi(r);
         var pin = cell.querySelector('.cell-bar i');
         pin.style.left = (r == null ? 50 : r) + '%';
@@ -322,6 +362,80 @@
       });
     });
   }
+  // --- Tarayıcı bildirimleri (sayfa açıkken) ------------------------------
+
+  var NOTIFY_KEY = 'rc-notify-v1';
+  var notify = { on: false, seen: {} };
+  try { notify = Object.assign(notify, JSON.parse(localStorage.getItem(NOTIFY_KEY) || '{}')); } catch (e) { /* yok say */ }
+  var baseline = {};
+  function saveNotify() {
+    // en fazla 300 anahtar tut
+    var keys = Object.keys(notify.seen);
+    if (keys.length > 300) keys.sort(function (a, b) { return notify.seen[a] - notify.seen[b]; }).slice(0, keys.length - 300).forEach(function (k) { delete notify.seen[k]; });
+    try { localStorage.setItem(NOTIFY_KEY, JSON.stringify(notify)); } catch (e) { /* yok say */ }
+  }
+  function canNotify() { return 'Notification' in window && Notification.permission === 'granted' && notify.on; }
+
+  // Sunucudaki mantığın aynısı: yalnızca kapanmış mumlar, yeni onaylar ve oluşanlar
+  function checkNotify(tf, candles) {
+    if (!canNotify() || state.mode !== 'live') return;
+    var closed = closedOf(candles, tf);
+    var res = D.findDivergences(closed, state.opts), last = closed.length - 1;
+    var events = res.divergences.filter(function (x) { return x.confirmIndex >= last - 2; })
+      .concat(D.findPotential(closed, state.opts, res.rsi))
+      .filter(function (x) { return state.show[x.type]; });
+    var key0 = state.unit + ':' + tf + ':';
+    var first = !baseline[key0];
+    baseline[key0] = true;
+    events.forEach(function (x) {
+      var key = key0 + x.type + ':' + x.from.time + (x.potential ? ':pot' : ':' + x.to.time);
+      if (notify.seen[key]) return;
+      notify.seen[key] = Date.now();
+      if (first && notify.baselinePending) return; // bildirimi yeni açtıysa mevcut olanları sessizce işaretle
+      var t = TYPES[x.type];
+      var title = (x.potential ? 'Oluşuyor: ' : '') + t.label + ' uyumsuzluk · Gümüş ' + TF[tf].label;
+      var body = 'Fiyat ' + currency() + fmtPrice(x.from.price) + ' → ' + currency() + fmtPrice(x.to.price) +
+        ' · RSI ' + fmtRsi(x.from.rsi) + ' → ' + fmtRsi(x.to.rsi) +
+        (x.potential ? ' · onaya ' + x.barsLeft + ' mum' : ' · onaylandı');
+      try { new Notification(title, { body: body, tag: key, icon: document.querySelector('link[rel=icon]').href }); } catch (e) { /* yok say */ }
+    });
+    if (notify.baselinePending && Object.keys(baseline).length >= Object.keys(TF).length) notify.baselinePending = false;
+    saveNotify();
+  }
+
+  function renderNotifyBtn() {
+    var b = $('notifyBtn'), note = $('notifyNote');
+    if (!('Notification' in window)) {
+      b.disabled = true; b.textContent = 'Tarayıcı desteklemiyor';
+      note.textContent = 'iPhone’da bildirim için siteyi “Ana Ekrana Ekle” ile açın veya Telegram kanalını kullanın.';
+      return;
+    }
+    var on = canNotify();
+    b.setAttribute('aria-pressed', String(on));
+    b.textContent = on ? 'Tarayıcı bildirimi açık ✓' : 'Tarayıcı bildirimi aç';
+    note.textContent = Notification.permission === 'denied'
+      ? 'Bildirim izni engellenmiş; tarayıcı ayarlarından bu site için izin verin.'
+      : on ? 'Bu sekme açık kaldığı sürece yeni uyumsuzluklarda bildirim alırsınız. Sekme kapalıyken de haber almak için Telegram kanalına katılın.' : '';
+  }
+  $('notifyBtn').addEventListener('click', function () {
+    if (canNotify()) { notify.on = false; saveNotify(); renderNotifyBtn(); return; }
+    Notification.requestPermission().then(function (p) {
+      notify.on = p === 'granted';
+      notify.baselinePending = true; baseline = {};
+      saveNotify(); renderNotifyBtn();
+      if (notify.on) {
+        try { new Notification('RC. bildirimleri açık', { body: 'Yeni uyumsuzluk oluştuğunda burada göreceksiniz.' }); } catch (e) { /* yok say */ }
+        runScanner(false);
+      }
+    });
+  });
+
+  (function initChannels() {
+    var cfg = window.RC_CONFIG || {};
+    if (cfg.telegramUrl) { $('tgBtn').href = cfg.telegramUrl; $('tgBtn').hidden = false; }
+    if (cfg.discordUrl) { $('dcBtn').href = cfg.discordUrl; $('dcBtn').hidden = false; }
+  })();
+
   function markActiveScan() {
     Array.prototype.forEach.call($('scanner').children, function (el) {
       el.classList.toggle('active', state.mode !== 'csv' && el.getAttribute('data-tf') === state.tf);
@@ -452,7 +566,7 @@
   // --- Başlat --------------------------------------------------------------
 
   $('yr').textContent = new Date().getFullYear();
-  syncOptInputs(); renderTfSeg(); renderUnitSeg(); renderChips();
+  syncOptInputs(); renderTfSeg(); renderUnitSeg(); renderChips(); renderNotifyBtn();
   load().then(function () { runScanner(false); });
 
   setInterval(function () { if (state.mode !== 'csv' && !document.hidden) load(); }, REFRESH_MS);

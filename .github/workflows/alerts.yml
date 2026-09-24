@@ -1,0 +1,24 @@
+# Her 10 dakikada bir Vercel'deki /api/check uç noktasını tetikler.
+# Gerekli repo secret'ları: ALERT_URL (ör. https://rc-gumus.vercel.app/api/check), CRON_SECRET
+name: Uyumsuzluk bildirimleri
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Kontrol et ve bildir
+        env:
+          ALERT_URL: ${{ secrets.ALERT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$ALERT_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "ALERT_URL / CRON_SECRET secret'ları tanımlı değil, atlanıyor."
+            exit 0
+          fi
+          curl -sS --fail-with-body --max-time 90 -H "Authorization: Bearer $CRON_SECRET" "$ALERT_URL"

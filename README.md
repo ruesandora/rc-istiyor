@@ -1,6 +1,6 @@
-# RC · Gümüş RSI Uyumsuzluk
+# RC. · Gümüş RSI Uyumsuzluk
 
-**Rues Community (RC)** gümüş yatırımcıları için RSI uyumsuzluk (divergence) tarayıcısı.
+**Rues Community (RC)** gümüş yatırımcıları için RSI uyumsuzluk (divergence) tarayıcısı ve bildirim botu.
 
 | Tür | Anlamı |
 |---|---|
@@ -9,34 +9,72 @@
 | 🔵 **Gizli Pozitif** | Fiyat daha yüksek dip, RSI daha düşük dip → yükseliş trendi devamı |
 | 🟠 **Gizli Negatif** | Fiyat daha düşük tepe, RSI daha yüksek tepe → düşüş trendi devamı |
 
-## Özellikler
-- Canlı XAG/USD mum verisi (anahtar gerekmez): sırayla Binance Futures `XAGUSDT`, Bybit, OKX denenir
-- Ons ($) veya **Gram (₺)** görünüm (USDT/TRY kuruyla yaklaşık hesap)
-- 15 dk · 1 saat · 4 saat · Günlük · Haftalık
-- Fiyat ve RSI grafiğinde uyumsuzluk çizgileri ve işaretleri (normal = düz, gizli = kesikli çizgi)
-- Tüm zaman dilimlerindeki son uyumsuzluğu gösteren **çoklu zaman dilimi tarayıcı**
-- Ayarlanabilir RSI periyodu, pivot sol/sağ ve pivotlar arası min./maks. mum aralığı
-- Kendi verin için CSV yükleme (`date, open, high, low, close` veya Türkçe başlıklar)
-- Veriye ulaşılamazsa açıkça işaretlenmiş demo veri
-- Mobil uyumlu, 60 sn’de bir otomatik yenileme
+İki aşamada bildirim gider:
 
-Tespit mantığı TradingView’in “RSI Divergence Indicator” yaklaşımıyla aynıdır: RSI üzerinde pivot dip/tepe bulunur (varsayılan 5 sol / 5 sağ mum), ardışık iki pivotta fiyat ile RSI karşılaştırılır.
+- **⏳ Oluşuyor:** İkinci dip/tepe oluştu ama henüz onaylanmadı (pivotun sağında 5 mum tamamlanmadı). Fiyat yeni dip/tepe yaparsa iptal olabilir.
+- **✅ Onaylandı:** Pivot onaylandı, uyumsuzluk kesinleşti.
 
-## Çalıştırma
-Derleme adımı yoktur, statik bir sitedir:
+## Nasıl çalışır
 
-```bash
-python3 -m http.server 8080   # sonra http://localhost:8080
-node tests/divergence.test.js # motor testleri
+```
+GitHub Actions (her 10 dk) ──► Vercel /api/check (Frankfurt)
+                                  │  Binance XAGUSDT mumlarını çeker
+                                  │  RSI + uyumsuzluk hesaplar (js/divergence.js)
+                                  │  Daha önce gönderildi mi? → Upstash Redis
+                                  └► Telegram kanalı / Discord
 ```
 
-## Yayınlama (GitHub Pages)
-`main` dalına push edildiğinde `.github/workflows/pages.yml` siteyi yayınlar.
-Repo ayarlarında **Settings → Pages → Source: GitHub Actions** seçilmelidir.
+Site (`index.html`) aynı motoru tarayıcıda çalıştırır; sayfa açıkken tarayıcı bildirimi de verebilir.
+
+## Vercel'e bağlama (tek seferlik)
+
+1. [vercel.com/new](https://vercel.com/new) → GitHub ile giriş → **`ruesandora/rc-istiyor`** reposunu **Import** et.
+   Framework: *Other*, build komutu yok. **Deploy**.
+   - Bundan sonra her push'ta otomatik yayın olur; her dal / PR için ayrı **önizleme linki** gelir.
+2. Önizleme kontrolü: `https://<site>.vercel.app/api/check?dry=1` → şu an bildirilecek olayları JSON olarak gösterir (hiçbir şey göndermez).
+
+### Bildirimleri açmak
+
+1. **Telegram botu:** Telegram'da [@BotFather](https://t.me/BotFather) → `/newbot` → token'ı al.
+2. **Kanal:** Bir Telegram kanalı aç (ör. `@rcgumus`), botu kanala **yönetici** olarak ekle.
+3. **Tekrar önleme deposu:** Vercel projesi → **Storage** → **Upstash (Redis)** → ücretsiz planla oluştur ve projeye bağla
+   (`KV_REST_API_URL` ve `KV_REST_API_TOKEN` otomatik eklenir).
+4. Vercel → **Settings → Environment Variables**:
+
+| Değişken | Örnek | Açıklama |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | `123456:ABC…` | BotFather'dan |
+| `TELEGRAM_CHAT_ID` | `@rcgumus` | Kanal kullanıcı adı veya `-100…` ID |
+| `CRON_SECRET` | uzun rastgele metin | /api/check'i yalnızca zamanlayıcı çağırabilsin |
+| `SITE_URL` | `https://rc-gumus.vercel.app` | Mesajdaki "Grafiği aç" linki |
+| `DISCORD_WEBHOOK_URL` | *(isteğe bağlı)* | Discord kanalına da gönderir |
+| `ALERT_TIMEFRAMES` | `1h,4h,1d,1w` | Taranacak periyotlar (`15m` de eklenebilir) |
+| `ALERT_UNITS` | `usd` | `usd`, `try` veya `usd,try` |
+| `ALERT_POTENTIAL` | `on` | `off` → yalnızca onaylananlar |
+
+   Değişkenleri ekledikten sonra **Redeploy**.
+5. Deneme mesajı: `https://<site>.vercel.app/api/check?test=1&key=<CRON_SECRET>` → kanala "bildirim testi" düşmeli.
+6. **Zamanlayıcı:** GitHub repo → **Settings → Secrets and variables → Actions**:
+   - `ALERT_URL` = `https://<site>.vercel.app/api/check`
+   - `CRON_SECRET` = Vercel'dekiyle aynı
+
+   `.github/workflows/alerts.yml` her 10 dakikada bir çalışır (yalnızca varsayılan daldan). **Actions → Uyumsuzluk bildirimleri → Run workflow** ile elle de tetiklenebilir.
+7. Sitedeki "Telegram kanalına katıl" butonu için `js/config.js` içine kanal linkini yaz.
+
+## Geliştirme
+
+```bash
+npm test                        # motor + API testleri (ağ taklit edilir)
+python3 -m http.server 8080     # siteyi yerelde aç
+npx vercel dev                  # API dahil yerelde çalıştır
+```
 
 ## Dosyalar
-- `js/divergence.js`: RSI (Wilder), pivot ve uyumsuzluk motoru
-- `js/data.js`: veri kaynakları, gram/₺ dönüşümü, CSV okuyucu, demo veri
-- `js/app.js`: arayüz ve grafikler ([Lightweight Charts](https://github.com/tradingview/lightweight-charts))
+
+- `js/divergence.js`: RSI (Wilder), pivot, onaylı ve oluşmakta olan uyumsuzluk motoru (tarayıcı + Node)
+- `js/data.js`: veri kaynakları (Binance → Bybit → OKX), gram/₺ dönüşümü, CSV okuyucu, demo veri
+- `js/app.js`: arayüz, grafikler ([Lightweight Charts](https://github.com/tradingview/lightweight-charts)), tarayıcı bildirimleri
+- `lib/alerts.js`: bildirim mantığı, mesaj biçimi, Telegram/Discord, Redis
+- `api/check.js`: Vercel fonksiyonu
 
 > ⚠️ Yatırım tavsiyesi değildir. Yalnızca eğitim ve bilgilendirme amaçlıdır.

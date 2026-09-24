@@ -26,6 +26,7 @@
         <a href="#matris">Periyotlar</a>
         <a href="#kayit">Kayıt</a>
         <a href="#rehber">Rehber</a>
+        <a href="#bildirim">Bildirim</a>
       </nav>
       <div class="live" id="live"><span class="dot"></span><span id="liveText">Bağlanıyor</span></div>
     </div>
@@ -64,7 +65,24 @@
           <p class="eyebrow">Son uyumsuzluk</p>
           <div class="metric-row"><span class="metric-sig" id="lastSig">—</span></div>
           <p class="metric-note mono" id="lastSigAge">&nbsp;</p>
+          <div class="pending" id="pending" hidden></div>
         </div>
+      </div>
+    </section>
+
+    <!-- Bildirimler -->
+    <section class="wrap" id="bildirim">
+      <div class="alerts">
+        <div>
+          <h2>Uyumsuzluk oluştuğu an haberin olsun.</h2>
+          <p>Oluşmaya başladığında “oluşuyor”, onaylandığında “onaylandı” bildirimi gelir. 1 saat, 4 saat, günlük ve haftalık periyotlar 10 dakikada bir taranır.</p>
+        </div>
+        <div class="alert-actions">
+          <a class="btn solid" id="tgBtn" href="#" target="_blank" rel="noopener" hidden>Telegram kanalına katıl →</a>
+          <a class="btn" id="dcBtn" href="#" target="_blank" rel="noopener" lang="en" hidden>Discord</a>
+          <button class="btn" id="notifyBtn" type="button" aria-pressed="false">Tarayıcı bildirimi aç</button>
+        </div>
+        <p class="alert-note" id="notifyNote"></p>
       </div>
     </section>
 
@@ -148,6 +166,7 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/divergence.js"></script>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>

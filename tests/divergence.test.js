@@ -91,6 +91,28 @@ test('Gizli negatif: fiyat LH, RSI HH', () => {
   assert.ok(t.includes('hbear'), t.join(','));
 });
 
+test('Olası uyumsuzluk: dip B henüz onaylanmadan tespit edilir, onaylanınca normal listeye geçer', () => {
+  const full = twoLows(26, 25.5, 33);            // dip B indeksi 47
+  const early = candles(full.slice(0, 50));        // B'den sonra yalnızca 2 mum
+  const pot = D.findPotential(early);
+  const p = pot.find(x => x.type === 'bull');
+  assert.ok(p, JSON.stringify(pot));
+  assert.strictEqual(p.to.i, 47);
+  assert.strictEqual(p.barsLeft, 3);
+  assert.ok(!D.findDivergences(early).divergences.some(d => d.type === 'bull' && d.to.i === 47));
+  const done = D.findDivergences(candles(full.slice(0, 53))).divergences;
+  assert.ok(done.some(d => d.type === 'bull' && d.to.i === 47));
+  assert.ok(!D.findPotential(candles(full)).some(x => x.to.i === 47));
+});
+
+test('Olası uyumsuzluk: fiyat yeni dip yapmaya devam ederse aday kayar', () => {
+  const full = twoLows(26, 25.5, 33);
+  const c = candles(full.slice(0, 48));            // B tam son mumda
+  const p = D.findPotential(c).find(x => x.type === 'bull');
+  assert.ok(p);
+  assert.strictEqual(p.barsLeft, 5);
+});
+
 test('Aralık filtresi: maxRange dışındaki pivotlar eşleşmez', () => {
   const c = candles(twoLows(26, 25.5, 33));
   const all = D.findDivergences(c).divergences.filter(d => d.type === 'bull');

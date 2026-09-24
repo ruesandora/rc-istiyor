@@ -96,14 +96,7 @@
         var dist = b - a;
         if (dist < o.minRange || dist > o.maxRange) continue;
         var A = point(candles, r, a, side), B = point(candles, r, b, side);
-        var type = null;
-        if (side === 'low') {
-          if (B.price < A.price && B.rsi > A.rsi) type = 'bull';
-          else if (B.price > A.price && B.rsi < A.rsi) type = 'hbull';
-        } else {
-          if (B.price > A.price && B.rsi < A.rsi) type = 'bear';
-          else if (B.price < A.price && B.rsi > A.rsi) type = 'hbear';
-        }
+        var type = classify(side, A, B);
         if (type) out.push({ type: type, from: A, to: B, confirmIndex: Math.min(b + o.right, candles.length - 1) });
       }
     }
@@ -113,7 +106,57 @@
     return { rsi: r, divergences: out };
   }
 
-  var api = { TYPES: TYPES, DEFAULTS: DEFAULTS, rsi: rsi, pivots: pivots, findDivergences: findDivergences };
+  function classify(side, A, B) {
+    if (side === 'low') {
+      if (B.price < A.price && B.rsi > A.rsi) return 'bull';
+      if (B.price > A.price && B.rsi < A.rsi) return 'hbull';
+    } else {
+      if (B.price > A.price && B.rsi < A.rsi) return 'bear';
+      if (B.price < A.price && B.rsi > A.rsi) return 'hbear';
+    }
+    return null;
+  }
+
+  /**
+   * Oluşmakta olan (henüz onaylanmamış) uyumsuzluklar.
+   * Son onaylı pivot ile, sağ tarafı henüz tamamlanmamış aday pivot karşılaştırılır.
+   * Aday, solundaki `left` mumdan daha uç ve kendisinden sonraki mumlarca aşılmamış olmalı.
+   * Dönen öğe: { type, from, to, potential: true, barsLeft } — barsLeft: onay için gereken mum sayısı.
+   */
+  function findPotential(candles, opts, rsiValues) {
+    var o = Object.assign({}, DEFAULTS, opts || {});
+    var r = rsiValues || rsi(candles.map(function (c) { return c.close; }), o.period);
+    var n = candles.length, out = [];
+    ['low', 'high'].forEach(function (side) {
+      var piv = pivots(r, o.left, o.right, side);
+      if (!piv.length) return;
+      var a = piv[piv.length - 1];
+      var cand = -1;
+      for (var j = Math.max(n - o.right, a + 1, o.left); j < n; j++) {
+        var v = r[j];
+        if (v == null) continue;
+        var ok = true, k, w;
+        for (k = j - o.left; k < j && ok; k++) {
+          w = r[k];
+          if (w == null || (side === 'low' ? w <= v : w >= v)) ok = false;
+        }
+        for (k = j + 1; k < n && ok; k++) {
+          w = r[k];
+          if (side === 'low' ? w < v : w > v) ok = false;
+        }
+        if (ok) cand = j;
+      }
+      if (cand < 0) return;
+      var dist = cand - a;
+      if (dist < o.minRange || dist > o.maxRange) return;
+      var A = point(candles, r, a, side), B = point(candles, r, cand, side);
+      var type = classify(side, A, B);
+      if (type) out.push({ type: type, from: A, to: B, potential: true, barsLeft: o.right - (n - 1 - cand) });
+    });
+    return out;
+  }
+
+  var api = { TYPES: TYPES, DEFAULTS: DEFAULTS, rsi: rsi, pivots: pivots, findDivergences: findDivergences, findPotential: findPotential };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RCDiv = api;
 })(typeof window !== 'undefined' ? window : this);
