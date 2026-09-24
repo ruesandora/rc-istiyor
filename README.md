@@ -43,6 +43,7 @@ Site (`index.html`) aynı motoru tarayıcıda çalıştırır: en üstte Günlü
 
 | Değişken | Örnek | Açıklama |
 |---|---|---|
+| `YAHOO` | *(varsayılan açık)* | Anahtarsız COMEX gümüş vadeli (SI=F, TradingView `COMEX:SI1!`), 10 yıllık geçmiş. Kapatmak için `off` |
 | `OANDA_API_KEY` | *(önerilen)* | Spot XAG/USD, uzun geçmiş. Ücretsiz demo hesabın API anahtarı ([oanda.com/demo-account](https://www.oanda.com/demo-account/)). Canlı hesap için `OANDA_ENV=live` |
 | `TWELVEDATA_API_KEY` | *(isteğe bağlı)* | Not: XAG/USD ücretsiz planda yok. Anahtar yoksa ya da hata verirse Binance kullanılır |
 | `TELEGRAM_BOT_TOKEN` | `123456:ABC…` | BotFather'dan |
