@@ -11,6 +11,7 @@
 
 const API = require('../js/data.js');
 const A = require('../lib/alerts.js');
+const { loadMarket } = require('../lib/market.js');
 
 const TTL = 60 * 60 * 24 * 45; // 45 gün
 
@@ -43,14 +44,18 @@ async function run(req, env) {
   if (!dry && !kv) return [500, { error: 'Tekrar önleme deposu yok: KV_REST_API_URL / KV_REST_API_TOKEN (veya UPSTASH_REDIS_REST_*) tanımlayın.' }];
 
   const report = { dry, at: new Date().toISOString(), timeframes: [], sent: 0, errors: [] };
+  const market = await loadMarket(env);
+  report.source = market.source;
+  if (market.warning) report.warning = market.warning;
 
   {
     for (const tf of tfs) {
       const row = { tf };
       report.timeframes.push(row);
       let data;
-      try { data = await API.loadSilver(tf); } catch (e) { row.error = e.message; report.errors.push(`${tf}: ${e.message}`); continue; }
-      row.source = data.source;
+      const c = market.timeframes[tf];
+      if (!Array.isArray(c)) { row.error = c ? c.error : 'veri yok'; report.errors.push(`${tf}: ${row.error}`); continue; }
+      data = { candles: c };
       const ev = A.evaluate(data.candles, tf, {}, nowSec);
       row.lastClose = ev.closed.length ? ev.closed[ev.closed.length - 1].close : null;
       row.rsi = ev.rsi == null ? null : Math.round(ev.rsi * 10) / 10;
