@@ -7,7 +7,6 @@
   var ORDER = ['1d', '4h', '1h', '1w'];        // Günlük önce
   var FRESH_BARS = 10;                          // "yeni onaylandı" sayılacak süre (mum)
   var REFRESH_MS = 2 * 60 * 1000;
-  var COLORS = { bull: 'var(--bull)', bear: 'var(--bear)', hbull: 'var(--hbull)', hbear: 'var(--hbear)' };
   var MEANING = {
     bull: 'Düşüş zayıflıyor, yukarı dönüş olabilir.',
     bear: 'Yükseliş zayıflıyor, aşağı dönüş olabilir.',
@@ -28,7 +27,15 @@
   // --- Biçim -----------------------------------------------------------------
 
   function money(v) { return '$' + v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function num1(v) { return v == null ? '—' : v.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  // RSI her zaman tam sayı ve mor gösterilir; fiyat her zaman $ ve iki ondalık. Karışmasın.
+  function rsiN(v) { return v == null ? '—' : String(Math.round(v)); }
+  function strip(v) {
+    var on = v == null ? 0 : Math.round(v / 10), h = '<span class="strip" aria-hidden="true">';
+    for (var i = 1; i <= 10; i++) h += '<i' + (i <= on ? ' class="on"' : '') + '></i>';
+    return h + '</span>';
+  }
+  function rsiChip(v) { return '<span class="rsi-chip">' + strip(v) + 'RSI ' + rsiN(v) + '</span>'; }
+  function zone(v) { return v == null ? '' : v >= 70 ? 'aşırı alım' : v <= 30 ? 'aşırı satım' : 'nötr'; }
   function date(t, tf) {
     var daily = tf === '1d' || tf === '1w';
     return new Date(t * 1000).toLocaleString('tr-TR', Object.assign({ timeZone: 'Europe/Istanbul', day: 'numeric', month: 'long' },
@@ -40,7 +47,7 @@
     return d >= 1 ? d + ' gün önce' : h + ' saat önce';
   }
   function label(type) { return TYPES[type].label.replace('Gizli Pozitif', 'Gizli pozitif').replace('Gizli Negatif', 'Gizli negatif'); }
-  function typeHtml(type) { return '<span class="type" style="--c:' + COLORS[type] + '">' + label(type) + '</span>'; }
+  function typeHtml(type) { return '<span class="type t-' + type + '">' + label(type) + '</span>'; }
   function pair(a, b, f) { return f(a) + '<span class="arrow">→</span>' + f(b); }
 
   // --- Veri ------------------------------------------------------------------
@@ -86,30 +93,67 @@
 
   // --- Çizim -----------------------------------------------------------------
 
-  function card(tf) {
-    var r = results[tf], main = tf === '1d';
-    var cls = 'card' + (main ? ' main' : '') + (tf === selected ? ' sel' : '');
-    if (!r) return '<button class="' + cls + ' skeleton" data-tf="' + tf + '"><div class="card-top"><span class="tf">' + TF[tf].label + '</span></div><span class="head">Yükleniyor…</span></button>';
-    if (r.error) return '<button class="' + cls + ' none" data-tf="' + tf + '"><div class="card-top"><span class="tf">' + TF[tf].label + '</span></div><span class="head">Veri alınamadı</span><p class="detail">Birazdan tekrar denenecek.</p></button>';
-
+  /** Günlük: fiş kartı (hero'nun sağında). */
+  function receipt(tf) {
+    var r = results[tf], sel = tf === selected ? ' sel' : '';
+    var top = '<div class="r-top"><span>Gümüş · ' + TF[tf].label + '</span>' + (r && !r.error ? rsiChip(r.rsi) : '') + '</div>';
+    if (!r) return '<button class="receipt" data-tf="' + tf + '">' + top + '<div class="r-head none">Yükleniyor…</div></button>';
+    if (r.error) return '<button class="receipt" data-tf="' + tf + '">' + top + '<div class="r-head none">Veri alınamadı</div><p class="r-foot">Birazdan tekrar denenecek.</p></button>';
     var st = stateOf(r), e = st.ev;
-    var top = '<div class="card-top"><span class="tf">' + TF[tf].label + '</span><span class="rsi">RSI <b>' + num1(r.rsi) + '</b></span></div>';
     if (st.kind === 'none') {
-      return '<button class="' + cls + ' none" data-tf="' + tf + '">' + top +
-        '<span class="head">Uyumsuzluk yok</span>' +
-        '<p class="detail">' + (e ? 'Son: ' + label(e.type) + ' · ' + date(e.to.time, tf) : 'Bu periyotta henüz uyumsuzluk bulunmadı.') + '</p></button>';
+      return '<button class="receipt' + sel + '" data-tf="' + tf + '">' + top +
+        '<div style="margin-top:14px"><span class="tag none">Şu an sakin</span></div>' +
+        '<div class="r-head none">Uyumsuzluk yok</div><hr class="r-dash">' +
+        row('RSI', rsiN(r.rsi) + '<small>' + zone(r.rsi) + '</small>', 'rsi') +
+        (e ? row('Son görülen', label(e.type) + '<small>' + date(e.to.time, tf) + '</small>') : '') +
+        '<p class="r-foot">Yeni bir uyumsuzluk oluşmaya başladığında burada görünür.</p></button>';
     }
     var t = e.type;
-    var head = label(t) + (st.kind === 'pot' ? ' oluşuyor' : ' uyumsuzluk');
-    var pill = st.kind === 'pot' ? '<span class="pill pot">Oluşuyor · onaya ' + e.barsLeft + ' mum</span>' : '<span class="pill new">Onaylandı · ' + ago(r.closed.length - 1 - e.confirmIndex, tf) + '</span>';
-    return '<button class="' + cls + '" style="--c:' + COLORS[t] + '" data-tf="' + tf + '">' + top + pill +
-      '<span class="head">' + head + '</span>' +
-      '<div class="detail"><div>Fiyat ' + pair(e.from.price, e.to.price, money) + ' · ' + SHAPE[t][0] + '</div>' +
-      '<div>RSI ' + pair(e.from.rsi, e.to.rsi, num1) + ' · ' + SHAPE[t][1] + '</div></div></button>';
+    return '<button class="receipt t-' + t + sel + '" data-tf="' + tf + '">' + top +
+      '<div style="margin-top:14px">' + stateTag(st, r, tf) + '</div>' +
+      '<div class="r-head">' + label(t) + (st.kind === 'pot' ? ' oluşuyor' : ' uyumsuzluk') + '</div>' +
+      '<hr class="r-dash">' +
+      row('Fiyat', money(e.from.price) + ' → ' + money(e.to.price) + '<small>' + SHAPE[t][0] + '</small>') +
+      row('RSI', rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi) + '<small>' + SHAPE[t][1] + '</small>', 'rsi') +
+      row('Tarih', date(e.from.time, tf) + ' → ' + date(e.to.time, tf)) +
+      '<p class="r-foot">' + MEANING[t] + '</p></button>';
+  }
+  function row(l, v, cls) {
+    return '<div class="r-row' + (cls ? ' ' + cls : '') + '"><span class="l">' + l + '</span><span class="fill"></span><span class="v">' + v + '</span></div>';
+  }
+  function stateTag(st, r, tf) {
+    if (st.kind === 'pot') return '<span class="tag pot">Oluşuyor · onaya ' + st.ev.barsLeft + ' mum</span>';
+    if (st.kind === 'new') return '<span class="tag new">Onaylandı · ' + ago(r.closed.length - 1 - st.ev.confirmIndex, tf) + '</span>';
+    return '<span class="tag none">Şu an sakin</span>';
+  }
+
+  /** 4 saat, 1 saat, haftalık: küçük kartlar. */
+  function card(tf) {
+    var r = results[tf], cls = 'card' + (tf === selected ? ' sel' : '');
+    var head = function (x) { return '<div class="c-top"><span class="c-tf">' + TF[tf].label + '</span>' + x + '</div>'; };
+    if (!r) return '<button class="' + cls + '" data-tf="' + tf + '">' + head('') + '<span class="c-head none">Yükleniyor…</span></button>';
+    if (r.error) return '<button class="' + cls + '" data-tf="' + tf + '">' + head('') + '<span class="c-head none">Veri alınamadı</span></button>';
+    var st = stateOf(r), e = st.ev;
+    if (st.kind === 'none') {
+      return '<button class="' + cls + '" data-tf="' + tf + '">' + head(rsiChip(r.rsi)) +
+        '<span class="c-head none">Uyumsuzluk yok</span>' +
+        '<div class="c-row"><span class="l">Son</span>' + (e ? label(e.type) + ' · ' + date(e.to.time, tf) : 'henüz yok') + '</div></button>';
+    }
+    var t = e.type;
+    return '<button class="' + cls + ' t-' + t + '" data-tf="' + tf + '">' + head(rsiChip(r.rsi)) +
+      '<div style="margin-top:12px">' + stateTag(st, r, tf) + '</div>' +
+      '<span class="c-head">' + label(t) + (st.kind === 'pot' ? ' oluşuyor' : '') + '</span>' +
+      '<div class="c-row"><span class="l">Fiyat</span>' + money(e.from.price) + ' → ' + money(e.to.price) + '</div>' +
+      '<div class="c-row rsi"><span class="l">RSI</span>' + rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi) + '</div></button>';
+  }
+
+  function renderCards() {
+    $('receipt').innerHTML = receipt('1d');
+    $('others').innerHTML = ORDER.slice(1).map(card).join('');
   }
 
   function render() {
-    $('status').innerHTML = ORDER.map(card).join('');
+    renderCards();
 
     var d = results['1d'];
     if (d && !d.error) {
@@ -119,8 +163,9 @@
       $('change').innerHTML = '<span class="' + (ch >= 0 ? 'up' : 'down') + '">' + (ch >= 0 ? '+' : '') + ch.toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + '%</span>';
     }
     var ok = ORDER.some(function (tf) { return results[tf] && !results[tf].error; });
+    $('live').className = 'live' + (ok ? ' ok' : '');
     $('updated').textContent = ok
-      ? 'Son güncelleme ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }) + ' · her 2 dakikada yenilenir'
+      ? 'Canlı · son güncelleme ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' })
       : 'Veriye şu an ulaşılamıyor, birazdan tekrar denenecek.';
     renderList();
     drawChart(firstDraw); firstDraw = false;
@@ -137,33 +182,40 @@
       return '<tr><td>' + typeHtml(e.type) + (e.potential ? '<span class="tag">Oluşuyor</span>' : '') + '</td>' +
         '<td>' + date(e.to.time, selected) + '</td>' +
         '<td>' + pair(e.from.price, e.to.price, money) + '</td>' +
-        '<td>' + pair(e.from.rsi, e.to.rsi, num1) + '</td></tr>';
+        '<td class="rsi">' + pair(e.from.rsi, e.to.rsi, rsiN) + '</td></tr>';
     }).join('');
   }
 
   // --- Grafik (TradingView Lightweight Charts) -----------------------------
 
   var TZ = 3 * 3600;   // grafikte Türkiye saati
-  var HEX = { bull: '#4ade80', bear: '#f87171', hbull: '#60a5fa', hbear: '#fbbf24' };
+  var HEX = { bull: '#5ee39a', bear: '#ff7a6b', hbull: '#6cb4ff', hbear: '#ffc24b' };
   var LWC = window.LightweightCharts, pc = null, rc = null, candleS = null, rsiS = null, lines = [];
 
   function initCharts() {
     if (!LWC || pc) return !!pc;
     var base = {
       autoSize: true,
-      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9a9a97', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12 },
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9d9c92', fontFamily: 'Geist, system-ui, sans-serif', fontSize: 12 },
       grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
       rightPriceScale: { borderVisible: false, minimumWidth: 64 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 14 },
       crosshair: { mode: 0 },
-      localization: { locale: 'tr-TR', priceFormatter: function (v) { return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } }
+      localization: { locale: 'tr-TR' }
     };
     pc = LWC.createChart($('priceChart'), base);
     rc = LWC.createChart($('rsiChart'), base);
-    candleS = pc.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350' });
-    rsiS = rc.addLineSeries({ color: '#a78bfa', lineWidth: 2, priceLineVisible: false });
+    // Fiyat ekseni "$64,36", RSI ekseni tam sayı ve "RSI" etiketli: iki eksen karışmaz
+    candleS = pc.addCandlestickSeries({
+      upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      priceFormat: { type: 'custom', minMove: 0.01, formatter: function (v) { return money(v); } }
+    });
+    rsiS = rc.addLineSeries({
+      color: '#b69cff', lineWidth: 2, priceLineVisible: false, title: 'RSI',
+      priceFormat: { type: 'custom', minMove: 1, formatter: function (v) { return rsiN(v); } }
+    });
     rsiS.applyOptions({ autoscaleInfoProvider: function () { return { priceRange: { minValue: 0, maxValue: 100 } }; } });
-    [70, 30].forEach(function (v) { rsiS.createPriceLine({ price: v, color: 'rgba(255,255,255,.25)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false }); });
+    [70, 30].forEach(function (v) { rsiS.createPriceLine({ price: v, color: 'rgba(182,156,255,.35)', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: v === 70 ? 'aşırı alım' : 'aşırı satım' }); });
     var busy = false;
     function link(a, b) {
       a.timeScale().subscribeVisibleLogicalRangeChange(function (r) {
@@ -217,13 +269,14 @@
     var el = $('chartInfo');
     if (!r || r.error) { el.innerHTML = ''; return; }
     var st = stateOf(r), e = st.ev;
-    if (!e) { el.style.removeProperty('--c'); el.innerHTML = TF[selected].label + ' grafikte henüz uyumsuzluk yok.'; return; }
-    el.style.setProperty('--c', COLORS[e.type]);
+    el.className = 'info';
+    if (!e) { el.innerHTML = '<div>' + TF[selected].label + ' grafikte henüz uyumsuzluk yok.</div>'; return; }
+    el.className = 'info t-' + e.type;
     var when = st.kind === 'pot' ? 'şu an <b>oluşuyor</b> (onaya ' + e.barsLeft + ' mum)' : st.kind === 'new' ? 'yeni <b>onaylandı</b>' : 'en son ' + date(e.to.time, selected) + ' tarihinde görüldü';
-    el.innerHTML = '<b>' + label(e.type) + ' uyumsuzluk</b> ' + when + '. ' +
+    el.innerHTML = '<div><b>' + label(e.type) + ' uyumsuzluk</b> ' + when + '. ' +
       'Fiyat ' + money(e.from.price) + ' → ' + money(e.to.price) + ' (' + SHAPE[e.type][0] + '), ' +
-      'RSI ' + num1(e.from.rsi) + ' → ' + num1(e.to.rsi) + ' (' + SHAPE[e.type][1] + '). ' +
-      MEANING[e.type] + ' Grafikte ' + date(e.from.time, selected) + ' ile ' + date(e.to.time, selected) + ' arasındaki çizgi.';
+      '<span class="rsi-t">RSI ' + rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi) + '</span> (' + SHAPE[e.type][1] + '). ' +
+      MEANING[e.type] + ' Grafikte ' + date(e.from.time, selected) + ' ile ' + date(e.to.time, selected) + ' arasındaki çizgi.</div>';
   }
 
   function renderTabs() {
@@ -235,11 +288,17 @@
   function select(tf) {
     if (!TF[tf] || tf === selected) return;
     selected = tf;
-    renderTabs(); drawChart(true); renderList();
-    $('status').innerHTML = ORDER.map(card).join('');
+    renderTabs(); drawChart(true); renderList(); renderCards();
   }
-  $('tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tf]'); if (b) select(b.getAttribute('data-tf')); });
-  $('status').addEventListener('click', function (e) { var b = e.target.closest('[data-tf]'); if (b) select(b.getAttribute('data-tf')); });
+  function onPick(e) {
+    var b = e.target.closest('[data-tf]');
+    if (!b) return;
+    select(b.getAttribute('data-tf'));
+    if (b.id !== 'tabs' && !b.closest('#tabs')) $('chartInfo').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  $('tabs').addEventListener('click', onPick);
+  $('receipt').addEventListener('click', onPick);
+  $('others').addEventListener('click', onPick);
 
   // --- Tarayıcı bildirimi (sekme açıkken) ------------------------------------
 
@@ -261,7 +320,7 @@
         if (!primed && note.fresh) return; // bildirim yeni açıldıysa mevcutları sessizce işaretle
         try {
           new Notification('Gümüş ' + TF[tf].label + ': ' + label(e.type) + (e.potential ? ' oluşuyor' : ' onaylandı'), {
-            body: 'Fiyat ' + money(e.from.price) + ' → ' + money(e.to.price) + ' · RSI ' + num1(e.from.rsi) + ' → ' + num1(e.to.rsi), tag: k
+            body: 'Fiyat ' + money(e.from.price) + ' → ' + money(e.to.price) + ' · RSI ' + rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi), tag: k
           });
         } catch (err) { /* yok say */ }
       });
@@ -290,8 +349,7 @@
 
   if (CFG.telegramUrl) { $('tgBtn').href = CFG.telegramUrl; $('tgBtn').hidden = false; }
   $('yr').textContent = new Date().getFullYear();
-  renderTabs(); renderNotify();
-  $('status').innerHTML = ORDER.map(card).join('');
+  renderTabs(); renderNotify(); renderCards();
   loadAll();
   setInterval(function () { if (!document.hidden) loadAll(); }, REFRESH_MS);
 })();
