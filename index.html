@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RC. Gümüş RSI Uyumsuzluk</title>
-  <meta name="description" content="Rues Community (RC) — Gümüş için RSI uyumsuzluk durumu: pozitif, negatif, gizli pozitif, gizli negatif.">
+  <meta name="description" content="Rues Community (RC) — Gümüş ve altın için RSI uyumsuzluk durumu: pozitif, negatif, gizli pozitif, gizli negatif.">
   <meta name="theme-color" content="#0f100d">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f100d'/%3E%3Crect x='10' y='18' width='44' height='28' rx='14' fill='%23d9dde3' transform='rotate(-4 32 32)'/%3E%3Ctext x='32' y='40' font-family='Arial' font-weight='800' font-size='20' text-anchor='middle' fill='%230f100d'%3ERC%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,8 +16,14 @@
   <header class="top">
     <div class="wrap top-in">
       <a class="logo" href="#" aria-label="RC — Rues Community"><span>RC</span> Rues Community</a>
-      <div class="ticker" aria-label="Gümüş fiyatı">
-        <span class="k">Gümüş</span> <b id="price">—</b> <span id="change"></span>
+      <div class="top-right">
+        <div class="ticker" aria-live="polite">
+          <span class="k" id="tickerName">Gümüş</span> <b id="price">—</b> <span id="change"></span>
+        </div>
+        <div class="asset-seg" id="assetSeg" role="group" aria-label="Metal seçimi">
+          <button type="button" data-asset="silver" class="on" aria-pressed="true"><i class="coin ag"></i>Gümüş</button>
+          <button type="button" data-asset="gold" aria-pressed="false"><i class="coin au"></i>Altın</button>
+        </div>
       </div>
     </div>
   </header>
@@ -27,13 +33,14 @@
     <div class="wrap hero-in">
       <div class="hero-copy">
         <p class="eyebrow"><span class="live" id="live"></span><span id="updated">Yükleniyor…</span></p>
-        <h1>Gümüşte <span class="hl">uyumsuzluk</span> var mı?</h1>
-        <p class="lead">RSI ile fiyatın ayrıştığı anı, günlükten saatliğe tek bakışta gör. Oluşmaya başladığında haber ver, onaylandığında haber ver.</p>
+        <h1><span id="heroLoc">Gümüşte</span> <span class="hl">uyumsuzluk</span> var mı?</h1>
+        <p class="lead">RSI göstergesi ile fiyatın ters yöne gittiği anları günlük, 4 saatlik, 1 saatlik ve haftalık grafikte tarar. İsterseniz işaret oluşunca ve kesinleşince haber verir.</p>
         <div class="hero-actions">
           <a class="btn btn-silver" id="tgBtn" href="#" target="_blank" rel="noopener" hidden>Telegram kanalına katıl</a>
           <button class="btn btn-ghost" id="notifyBtn" type="button">Tarayıcı bildirimi aç</button>
         </div>
         <p class="note" id="notifyNote"></p>
+        <p class="warn">Bu site bir teknik göstergeyi otomatik tarar; <b>al-sat tavsiyesi vermez.</b> Kararlarınızı kendi araştırmanızla verin.</p>
       </div>
       <div class="hero-receipt" id="receipt" aria-live="polite"></div>
     </div>
@@ -62,6 +69,7 @@
         <span><i class="dash" style="--c:var(--bull)"></i>Gizli pozitif</span>
         <span><i class="dash" style="--c:var(--bear)"></i>Gizli negatif</span>
         <span><i class="dot" style="--c:var(--muted)"></i>Noktalı = oluşuyor</span>
+        <span class="abbr">P / N / GP / GN = pozitif / negatif / gizli pozitif / gizli negatif · ↑ dip · ↓ tepe · ● oluşuyor</span>
       </div>
       <p class="note">Çizgi iki dibi ya da iki tepeyi birleştirir: üstte fiyat ($), altta RSI (0–100). <b>Veri:</b> <span class="src">Binance · XAGUSDT perpetual</span>. <b>Grafik çizimi:</b> <a href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> kütüphanesi. · <a id="tvLink" href="#" target="_blank" rel="noopener">TradingView'de aç →</a></p>
     </section>
@@ -71,23 +79,26 @@
       <div class="block-h"><h2>Son uyumsuzluklar <span class="soft">· <span id="listTf">Günlük</span></span></h2><span class="score" id="listScore"></span></div>
       <div class="table-wrap">
         <table class="list">
-          <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat ($)</th><th class="th-rsi">RSI</th><th>Sonuç <span class="soft">(10 mum sonra)</span></th></tr></thead>
+          <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat ($)</th><th class="th-rsi">RSI</th><th>10 mum sonra fiyat beklenen yöne gitti mi?</th></tr></thead>
           <tbody id="rows"><tr><td colspan="5" class="empty">Yükleniyor…</td></tr></tbody>
         </table>
       </div>
-      <p class="note"><b>Sonuç nasıl ölçülüyor?</b> Uyumsuzluğun onaylandığı mumun kapanışı ile 10 mum sonraki kapanış karşılaştırılır. Pozitifte fiyat yükseldiyse, negatifte düştüyse <b>çalıştı</b> sayılır. 10 mum dolmadıysa <b>bekleniyor</b> yazar ve o ana kadarki değişim gösterilir.</p>
+      <p class="note"><b>Nasıl ölçülüyor?</b> Uyumsuzluğun onaylandığı mumun kapanışı ile 10 mum sonraki kapanış karşılaştırılır. Pozitifte fiyat yükseldiyse, negatifte düştüyse <b>beklenen yönde</b> sayılır. <b>Mum</b> = seçili periyottaki bir zaman dilimi (günlükte 1 gün, 4 saatlikte 4 saat). Geçmiş sonuçlar gelecek için garanti değildir.</p>
     </section>
 
     <!-- Kısa rehber -->
     <section class="block">
       <div class="block-h"><h2>Ne anlama geliyor?</h2></div>
+      <div class="rsi-what">
+        <b>RSI nedir?</b> Fiyatın son 14 mumdaki yükseliş gücünü 0–100 arasında ölçer. 70 üstü <i>aşırı alım</i> (çok hızlı yükseldi), 30 altı <i>aşırı satım</i> (çok hızlı düştü). <b>Uyumsuzluk</b>, fiyat ile RSI'ın farklı yöne gitmesidir: hareketin güç kaybettiğini ya da trendin süreceğini işaret edebilir.
+      </div>
       <div class="guide">
         <div class="g" style="--c:var(--bull)"><span class="g-tag">Dönüş ↑</span><b>Pozitif</b><p>Fiyat daha düşük dip, RSI daha yüksek dip. Düşüş zayıflıyor.</p></div>
         <div class="g" style="--c:var(--bear)"><span class="g-tag">Dönüş ↓</span><b>Negatif</b><p>Fiyat daha yüksek tepe, RSI daha düşük tepe. Yükseliş zayıflıyor.</p></div>
         <div class="g hid" style="--c:var(--bull)"><span class="g-tag">Devam ↑</span><b>Gizli pozitif</b><p>Fiyat daha yüksek dip, RSI daha düşük dip. Yükseliş sürebilir.</p></div>
         <div class="g hid" style="--c:var(--bear)"><span class="g-tag">Devam ↓</span><b>Gizli negatif</b><p>Fiyat daha düşük tepe, RSI daha yüksek tepe. Düşüş sürebilir.</p></div>
       </div>
-      <p class="note"><b>Oluşuyor:</b> ikinci dip/tepe görüldü, onay için 5 mum beklenir; fiyat yeni dip/tepe yaparsa iptal olabilir. <b>Onaylandı:</b> uyumsuzluk kesinleşti.</p>
+      <p class="note"><b>Oluşuyor:</b> ikinci dip/tepe görüldü; ardından 5 mum (günlükte 5 gün) beklenir. Bu sürede fiyat yeni bir dip/tepe yaparsa işaret iptal olur. <b>Onaylandı:</b> uyumsuzluk kesinleşti. <b>"Gizli"</b>, saklı demek değil; mevcut trendin süreceğini gösterir.</p>
     </section>
   </main>
 

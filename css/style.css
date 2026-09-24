@@ -269,3 +269,58 @@ a { color: inherit; }
 .score { font-size: 15px; font-weight: 600; color: var(--text-2); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; }
 .score b { color: var(--bull); }
 .score:empty { display: none; }
+
+/* Metal seçici (Gümüş | Altın) */
+.top-right { display: flex; align-items: center; gap: 14px; }
+.asset-seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.asset-seg button { display: inline-flex; align-items: center; gap: 7px; font: 600 14px var(--body); min-height: 38px; padding: 0 14px; border-radius: 999px; border: 0; background: transparent; color: var(--muted); cursor: pointer; transition: background .16s, color .16s; }
+.asset-seg button:hover { color: var(--text); }
+.asset-seg button.on { background: var(--silver); color: var(--paper-ink); }
+body[data-asset="gold"] .asset-seg button.on { background: #f3cf6b; }
+body[data-asset="gold"] .hl, body[data-asset="gold"] .logo span, body[data-asset="gold"] .tabs button.on, body[data-asset="gold"] .btn-silver { background: #f3cf6b; }
+.coin { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.coin.ag { background: linear-gradient(135deg, #f4f5f7, #9ea3aa); }
+.coin.au { background: linear-gradient(135deg, #ffe7a0, #c99a2e); }
+.warn { font-size: 14px; color: var(--muted); margin: 16px 0 0; max-width: 520px; }
+.warn b { color: var(--text-2); }
+
+/* Fişte sade özet */
+.r-plain { margin: 6px 0 0; font-size: 15.5px; color: #3b3b36; line-height: 1.45; }
+.r-plain b { color: var(--paper-ink); }
+.r-top, .r-row .l, .r-row .v small, .r-foot { color: #5c5b54; }
+.r-top { letter-spacing: .04em; }
+.rsi-chip { white-space: nowrap; }
+.receipt:focus-visible { transform: none; }
+.arr { font-weight: 700; }
+.card.old .c-head { opacity: .8; }
+.card { display: flex; flex-direction: column; justify-content: flex-start; }
+
+.rsi-what { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--rsi); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 12px; color: var(--text-2); font-size: 15.5px; }
+.rsi-what b:first-child { color: var(--rsi); }
+.legend .abbr { color: var(--muted); font-size: 13px; }
+.res small { opacity: 1; }
+
+/* Erişilebilirlik ve dokunma alanları */
+:focus-visible { outline: 2px solid var(--silver); outline-offset: 3px; }
+.tabs button { white-space: nowrap; min-height: 40px; }
+
+@media (max-width: 700px) {
+  .top-in { height: auto; padding-top: 10px; padding-bottom: 10px; }
+  .top-right { gap: 8px; }
+  .ticker .k, .ticker #change { display: none; }
+  .ticker b { font-size: 16px; }
+  .asset-seg button { padding: 0 11px; font-size: 13.5px; }
+  .tabs { width: 100%; }
+  .tabs button { flex: 1; min-height: 44px; padding: 0 8px; }
+  .strip { width: 80px; }
+  .r-row { flex-wrap: wrap; }
+  .r-row .v small { display: block; margin: 2px 0 0; }
+  /* Tablo → kart */
+  .list thead { display: none; }
+  .list tr { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .list td { padding: 0; border: 0; white-space: normal; }
+  .list td:nth-child(2) { grid-column: 1; color: var(--muted); font-size: 14px; }
+  .list td:nth-child(5) { grid-row: 1; grid-column: 2; text-align: right; }
+  .list td:nth-child(3), .list td:nth-child(4) { font-size: 14px; }
+  .list tr:last-child { border-bottom: 0; }
+}

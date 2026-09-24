@@ -1,4 +1,4 @@
-/* RC — Gümüş RSI Uyumsuzluk: arayüz */
+/* RC — Gümüş & Altın RSI Uyumsuzluk: arayüz */
 (function () {
   'use strict';
 
@@ -13,6 +13,8 @@
     hbull: 'Yükseliş trendi devam edebilir.',
     hbear: 'Düşüş trendi devam edebilir.'
   };
+  // Düz Türkçe: işaret neyi gösteriyor
+  var DIR = { bull: 'yukarı dönüş', bear: 'aşağı dönüş', hbull: 'yükselişin sürmesi', hbear: 'düşüşün sürmesi' };
   var SHAPE = {
     bull: ['daha düşük dip', 'daha yüksek dip'],
     bear: ['daha yüksek tepe', 'daha düşük tepe'],
@@ -23,7 +25,12 @@
   var $ = function (id) { return document.getElementById(id); };
   var results = {};           // tf -> { candles, closed, divs, pending, rsi }
   var selected = '1d', firstDraw = true;
-  var market = { source: 'Binance · XAGUSDT perpetual', symbol: CFG.tvSymbol || 'BINANCE:XAGUSDT.P' };
+  var market = { source: '', symbol: '' };
+
+  // Metal: #altin ile açılırsa altın; seçim hatırlanır
+  var asset = /altin|gold/.test(location.hash) ? 'gold' : (location.hash ? 'silver' : null);
+  if (!asset) { try { asset = localStorage.getItem('rc-asset') === 'gold' ? 'gold' : 'silver'; } catch (e) { asset = 'silver'; } }
+  function A() { return API.ASSETS[asset]; }
 
   // --- Biçim -----------------------------------------------------------------
 
@@ -47,6 +54,13 @@
     if (bars <= 0) return 'bugün';
     return d >= 1 ? d + ' gün önce' : h + ' saat önce';
   }
+  /** mum sayısı → "4 gün", "16 saat", "2 hafta" */
+  function dur(bars, tf) {
+    var s = bars * TF[tf].seconds;
+    if (s >= 7 * 86400 && s % (7 * 86400) === 0) return (s / 604800) + ' hafta';
+    if (s >= 86400) return Math.round(s / 86400) + ' gün';
+    return Math.round(s / 3600) + ' saat';
+  }
   function label(type) { return TYPES[type].label.replace('Gizli Pozitif', 'Gizli pozitif').replace('Gizli Negatif', 'Gizli negatif'); }
   function typeHtml(type) { return '<span class="type t-' + type + (TYPES[type].hidden ? ' hid' : '') + '">' + label(type) + '</span>'; }
   function pair(a, b, f) { return f(a) + '<span class="arrow">→</span>' + f(b); }
@@ -67,65 +81,113 @@
   }
 
   /** Kartta gösterilecek durum: oluşan > yeni onaylanan > yok */
+  /** Gösterilecek uyumsuzluk: oluşan > yeni onaylanan > en son görülen > hiç yok */
   function stateOf(r) {
     if (r.pending.length) return { kind: 'pot', ev: r.pending[r.pending.length - 1] };
     var last = r.divs[r.divs.length - 1];
-    if (last && r.closed.length - 1 - last.confirmIndex <= FRESH_BARS) return { kind: 'new', ev: last };
-    return { kind: 'none', ev: last };
+    if (!last) return { kind: 'none', ev: null };
+    return { kind: r.closed.length - 1 - last.confirmIndex <= FRESH_BARS ? 'new' : 'old', ev: last };
+  }
+
+  /** Tek cümlelik sade özet */
+  function plain(st, r, tf) {
+    var e = st.ev, per = TF[tf].label.toLocaleLowerCase('tr-TR');
+    if (!e) return per.charAt(0).toLocaleUpperCase('tr-TR') + per.slice(1) + ' grafikte henüz bir uyumsuzluk görülmedi.';
+    var g = per.charAt(0).toLocaleUpperCase('tr-TR') + per.slice(1) + ' grafikte <b>' + DIR[e.type] + '</b> işareti ';
+    if (st.kind === 'pot') return g + 'oluşmaya başladı; henüz kesin değil, <b>' + dur(e.barsLeft, tf) + '</b> içinde netleşir.';
+    var ago2 = ago(r.closed.length - 1 - e.confirmIndex, tf);
+    return g + (st.kind === 'new' ? 'kesinleşti (' + ago2 + ').' : ago2 + ' görüldü. Şu an yeni bir işaret yok.');
   }
 
   // Önce sitenin sunucusundan (/api/status), olmazsa doğrudan borsadan
+  var loadSeq = 0;
   function loadAll() {
-    return fetch('/api/status').then(function (res) {
+    var seq = ++loadSeq, a = asset, got = {};
+    return fetch('/api/status?asset=' + a).then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     }).then(function (j) {
-      if (j.source) { market.source = j.source; market.symbol = j.symbol; }
       ORDER.forEach(function (tf) {
         var t = j.timeframes && j.timeframes[tf];
         if (!t || t.error) throw new Error(tf + ': ' + (t ? t.error : 'yok'));
-        results[tf] = analyze(tf, { candles: t.candles.map(function (k) { return { time: k[0], open: k[1], high: k[2], low: k[3], close: k[4] }; }) });
+        got[tf] = analyze(tf, { candles: t.candles.map(function (k) { return { time: k[0], open: k[1], high: k[2], low: k[3], close: k[4] }; }) });
       });
+      got.$market = { source: j.source, symbol: j.symbol };
     }).catch(function () {
+      got = {};
       return Promise.all(ORDER.map(function (tf) {
-        return API.loadSilver(tf).then(function (d) { results[tf] = analyze(tf, d); }, function (e) { results[tf] = { error: e.message }; });
+        return API.loadAsset(tf, a).then(function (d) { got[tf] = analyze(tf, d); got.$market = { source: d.source + ' perpetual', symbol: 'BINANCE:' + API.ASSETS[a].binance + '.P' }; },
+          function (e) { got[tf] = { error: e.message }; });
       }));
-    }).then(render);
+    }).then(function () {
+      if (seq !== loadSeq || a !== asset) return; // metal değiştiyse eski cevabı at
+      if (got.$market) market = got.$market;
+      delete got.$market;
+      results = got;
+      render();
+    });
   }
+
+  // --- Metal seçimi (Gümüş | Altın) -----------------------------------------
+
+  function applyAsset() {
+    var a = A();
+    document.title = 'RC. ' + a.name + ' RSI Uyumsuzluk';
+    $('heroLoc').textContent = a.loc;
+    $('tickerName').textContent = a.name;
+    Array.prototype.forEach.call(document.querySelectorAll('#assetSeg button'), function (b) {
+      var on = b.getAttribute('data-asset') === asset;
+      b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on));
+    });
+    document.body.setAttribute('data-asset', asset);
+  }
+  function setAsset(a) {
+    if (!API.ASSETS[a] || a === asset) return;
+    asset = a;
+    try { localStorage.setItem('rc-asset', a); } catch (e) { /* yok say */ }
+    history.replaceState(null, '', a === 'gold' ? '#altin' : '#gumus');
+    results = {}; firstDraw = true; market = { source: '', symbol: '' };
+    $('price').textContent = '—'; $('change').innerHTML = '';
+    applyAsset(); renderCards(); renderList(); drawChart(true);
+    loadAll();
+  }
+  $('assetSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-asset]');
+    if (b) setAsset(b.getAttribute('data-asset'));
+  });
 
   // --- Çizim -----------------------------------------------------------------
 
-  /** Günlük: fiş kartı (hero'nun sağında). */
+  /** Günlük: fiş kartı (hero'nun sağında). Her zaman güncel ya da en son uyumsuzluğu gösterir. */
   function receipt(tf) {
     var r = results[tf], sel = tf === selected ? ' sel' : '';
-    var top = '<div class="r-top"><span>Gümüş · ' + TF[tf].label + '</span>' + (r && !r.error ? rsiChip(r.rsi) : '') + '</div>';
-    if (!r) return '<button class="receipt" data-tf="' + tf + '">' + top + '<div class="r-head none">Yükleniyor…</div></button>';
-    if (r.error) return '<button class="receipt" data-tf="' + tf + '">' + top + '<div class="r-head none">Veri alınamadı</div><p class="r-foot">Birazdan tekrar denenecek.</p></button>';
+    var top = '<div class="r-top"><span>' + A().name + ' · ' + TF[tf].label + '</span>' + (r && !r.error ? rsiChip(r.rsi) : '') + '</div>';
+    if (!r) return '<div role="button" tabindex="0" class="receipt" data-tf="' + tf + '">' + top + '<div class="r-head none">Yükleniyor…</div></div>';
+    if (r.error) return '<div role="button" tabindex="0" class="receipt" data-tf="' + tf + '">' + top + '<div class="r-head none">Veri alınamadı</div><p class="r-foot">Birazdan tekrar denenecek.</p></div>';
     var st = stateOf(r), e = st.ev;
-    if (st.kind === 'none') {
-      return '<button class="receipt' + sel + '" data-tf="' + tf + '">' + top +
-        '<div style="margin-top:14px"><span class="tag none">Şu an sakin</span></div>' +
-        '<div class="r-head none">Uyumsuzluk yok</div><hr class="r-dash">' +
-        row('RSI', rsiN(r.rsi) + '<small>' + zone(r.rsi) + '</small>', 'rsi') +
-        (e ? row('Son görülen', label(e.type) + '<small>' + date(e.to.time, tf) + '</small>') : '') +
-        '<p class="r-foot">Yeni bir uyumsuzluk oluşmaya başladığında burada görünür.</p></button>';
+    if (!e) {
+      return '<div role="button" tabindex="0" class="receipt' + sel + '" data-tf="' + tf + '">' + top +
+        '<div class="r-head none">Uyumsuzluk yok</div><p class="r-plain">' + plain(st, r, tf) + '</p></div>';
     }
-    var t = e.type;
-    return '<button class="receipt t-' + t + sel + '" data-tf="' + tf + '">' + top +
+    var t = e.type, o = st.kind === 'pot' ? null : outcome(e, r, true);
+    return '<div role="button" tabindex="0" class="receipt t-' + t + sel + '" data-tf="' + tf + '">' + top +
       '<div style="margin-top:14px">' + stateTag(st, r, tf) + '</div>' +
       '<div class="r-head">' + label(t) + (st.kind === 'pot' ? ' oluşuyor' : ' uyumsuzluk') + '</div>' +
+      '<p class="r-plain">' + plain(st, r, tf) + '</p>' +
       '<hr class="r-dash">' +
       row('Fiyat', money(e.from.price) + ' → ' + money(e.to.price) + '<small>' + SHAPE[t][0] + '</small>') +
       row('RSI', rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi) + '<small>' + SHAPE[t][1] + '</small>', 'rsi') +
       row('Tarih', date(e.from.time, tf) + ' → ' + date(e.to.time, tf)) +
-      '<p class="r-foot">' + MEANING[t] + '</p></button>';
+      (o ? row('O günden beri', '<span class="' + (o.ok ? 'up' : 'down') + '">' + pct(o.ch) + '</span><small>' + (o.ok ? 'beklenen yönde' : 'ters yönde') + '</small>') : '') +
+      '<p class="r-foot">' + MEANING[t] + ' Tavsiye değildir.</p></div>';
   }
   function row(l, v, cls) {
     return '<div class="r-row' + (cls ? ' ' + cls : '') + '"><span class="l">' + l + '</span><span class="fill"></span><span class="v">' + v + '</span></div>';
   }
   function stateTag(st, r, tf) {
-    if (st.kind === 'pot') return '<span class="tag pot">Oluşuyor · onaya ' + st.ev.barsLeft + ' mum</span>';
+    if (st.kind === 'pot') return '<span class="tag pot">Oluşuyor · ' + dur(st.ev.barsLeft, tf) + ' içinde netleşir</span>';
     if (st.kind === 'new') return '<span class="tag new">Onaylandı · ' + ago(r.closed.length - 1 - st.ev.confirmIndex, tf) + '</span>';
+    if (st.kind === 'old') return '<span class="tag none">Son görülen · ' + ago(r.closed.length - 1 - st.ev.confirmIndex, tf) + '</span>';
     return '<span class="tag none">Şu an sakin</span>';
   }
 
@@ -136,15 +198,14 @@
     if (!r) return '<button class="' + cls + '" data-tf="' + tf + '">' + head('') + '<span class="c-head none">Yükleniyor…</span></button>';
     if (r.error) return '<button class="' + cls + '" data-tf="' + tf + '">' + head('') + '<span class="c-head none">Veri alınamadı</span></button>';
     var st = stateOf(r), e = st.ev;
-    if (st.kind === 'none') {
+    if (!e) {
       return '<button class="' + cls + '" data-tf="' + tf + '">' + head(rsiChip(r.rsi)) +
-        '<span class="c-head none">Uyumsuzluk yok</span>' +
-        '<div class="c-row"><span class="l">Son</span>' + (e ? label(e.type) + ' · ' + date(e.to.time, tf) : 'henüz yok') + '</div></button>';
+        '<span class="c-head none">Uyumsuzluk yok</span><div class="c-row">Bu periyotta henüz görülmedi.</div></button>';
     }
     var t = e.type;
-    return '<button class="' + cls + ' t-' + t + (TYPES[t].hidden ? ' hid' : '') + '" data-tf="' + tf + '">' + head(rsiChip(r.rsi)) +
+    return '<button class="' + cls + ' t-' + t + (TYPES[t].hidden ? ' hid' : '') + (st.kind === 'old' ? ' old' : '') + '" data-tf="' + tf + '">' + head(rsiChip(r.rsi)) +
       '<div style="margin-top:12px">' + stateTag(st, r, tf) + '</div>' +
-      '<span class="c-head">' + label(t) + (st.kind === 'pot' ? ' oluşuyor' : '') + '</span>' +
+      '<span class="c-head">' + label(t) + (st.kind === 'pot' ? ' oluşuyor' : '') + ' <span class="arr">' + (TYPES[t].side === 'low' ? '↑' : '↓') + '</span></span>' +
       '<div class="c-row"><span class="l">Fiyat</span>' + money(e.from.price) + ' → ' + money(e.to.price) + '</div>' +
       '<div class="c-row rsi"><span class="l">RSI</span>' + rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi) + '</div></button>';
   }
@@ -177,21 +238,21 @@
   var HORIZON = 10;   // sonuç, onaydan kaç mum sonra ölçülür
 
   /** Onay mumunun kapanışı → 10 mum sonraki kapanış. Pozitifte yükseliş, negatifte düşüş = çalıştı. */
-  function outcome(e, r) {
+  function outcome(e, r, sinceNow) {
     var c = r.closed, i = e.confirmIndex, base = c[i] && c[i].close;
     if (!base) return null;
     var up = TYPES[e.type].side === 'low';
-    var j = Math.min(i + HORIZON, c.length - 1), ch = (c[j].close - base) / base * 100;
+    var j = sinceNow ? c.length - 1 : Math.min(i + HORIZON, c.length - 1), ch = (c[j].close - base) / base * 100;
     return { done: i + HORIZON <= c.length - 1, bars: j - i, ch: ch, ok: up ? ch > 0 : ch < 0 };
   }
   function pct(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
   function resultHtml(e, r) {
-    if (e.potential) return '<span class="res wait">Oluşuyor</span>';
+    if (e.potential) return '<span class="res wait">Henüz sinyal değil</span>';
     var o = outcome(e, r);
     if (!o) return '';
     if (!o.done) return '<span class="res wait">Bekleniyor ' + o.bars + '/' + HORIZON + ' <small>şimdilik ' + pct(o.ch) + '</small></span>';
-    return o.ok ? '<span class="res ok">✓ Çalıştı <small>' + pct(o.ch) + '</small></span>'
-                : '<span class="res no">✗ Çalışmadı <small>' + pct(o.ch) + '</small></span>';
+    return o.ok ? '<span class="res ok">✓ Beklenen yönde <small>fiyat ' + pct(o.ch) + '</small></span>'
+                : '<span class="res no">✗ Ters yönde <small>fiyat ' + pct(o.ch) + '</small></span>';
   }
 
   function renderList() {
@@ -203,7 +264,7 @@
     if (!items.length) { $('rows').innerHTML = '<tr><td colspan="5" class="empty">Uyumsuzluk bulunamadı.</td></tr>'; return; }
     var done = last.map(function (e) { return outcome(e, r); }).filter(function (o) { return o && o.done; });
     var wins = done.filter(function (o) { return o.ok; }).length;
-    if (done.length) $('listScore').innerHTML = 'Son ' + done.length + ' sinyal: <b>' + wins + ' çalıştı</b>, ' + (done.length - wins) + ' çalışmadı';
+    if (done.length) $('listScore').innerHTML = 'Sonuçlanan ' + done.length + ' sinyalden <b>' + wins + ' tanesi</b> beklenen yönde gitti';
     $('rows').innerHTML = items.map(function (e) {
       return '<tr><td>' + typeHtml(e.type) + (e.potential ? '<span class="tag">Oluşuyor</span>' : '') + '</td>' +
         '<td>' + date(e.to.time, selected) + '</td>' +
@@ -234,8 +295,9 @@
     pc = LWC.createChart($('priceChart'), base);
     rc = LWC.createChart($('rsiChart'), base);
     // Fiyat ekseni "$64,36", RSI ekseni tam sayı ve "RSI" etiketli: iki eksen karışmaz
+    // Mumlar nötr gri: yeşil/kırmızı yalnızca uyumsuzluk çizgilerine ait
     candleS = pc.addCandlestickSeries({
-      upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      upColor: '#b9bbb2', downColor: '#4a4c44', borderVisible: false, wickUpColor: '#8b8d85', wickDownColor: '#6a6c64', priceLineColor: '#9d9c92',
       priceFormat: { type: 'custom', minMove: 0.01, formatter: function (v) { return money(v); } }
     });
     rsiS = rc.addLineSeries({
@@ -243,7 +305,7 @@
       priceFormat: { type: 'custom', minMove: 1, formatter: function (v) { return rsiN(v); } }
     });
     rsiS.applyOptions({ autoscaleInfoProvider: function () { return { priceRange: { minValue: 0, maxValue: 100 } }; } });
-    [70, 30].forEach(function (v) { rsiS.createPriceLine({ price: v, color: 'rgba(182,156,255,.35)', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: v === 70 ? 'aşırı alım' : 'aşırı satım' }); });
+    [70, 30].forEach(function (v) { rsiS.createPriceLine({ price: v, color: 'rgba(182,156,255,.35)', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '' }); });
     var busy = false;
     function link(a, b) {
       a.timeScale().subscribeVisibleLogicalRangeChange(function (r) {
@@ -254,6 +316,7 @@
     return true;
   }
 
+  function narrow() { return window.matchMedia && window.matchMedia('(max-width: 700px)').matches; }
   function addLine(chart, e, a, b) {
     var s = chart.addLineSeries({
       color: HEX[e.type], lineWidth: 3, lineStyle: e.potential ? 1 : (TYPES[e.type].hidden ? 2 : 0),
@@ -269,12 +332,17 @@
     Array.prototype.forEach.call(document.querySelectorAll('.src'), function (el) { el.textContent = market.source; });
     var r = results[selected];
     renderInfo(r);
-    if (!r || r.error || !initCharts()) return;
+    if (!initCharts()) return;
+    if (!r || r.error) {   // metal değişti / veri yok: eski grafiği temizle
+      candleS.setData([]); rsiS.setData([]); candleS.setMarkers([]);
+      lines.forEach(function (l) { l[0].removeSeries(l[1]); }); lines = [];
+      return;
+    }
     var c = r.candles, rsi = D.rsi(c.map(function (x) { return x.close; }), 14);
     candleS.setData(c.map(function (x) { return { time: x.time + TZ, open: x.open, high: x.high, low: x.low, close: x.close }; }));
     rsiS.setData(c.map(function (x, i) { return rsi[i] == null ? { time: x.time + TZ } : { time: x.time + TZ, value: rsi[i] }; }));
     lines.forEach(function (l) { l[0].removeSeries(l[1]); }); lines = [];
-    var events = r.divs.concat(r.pending), markers = [], recent = events.slice(-4);
+    var events = r.divs.concat(r.pending), markers = [];
     events.forEach(function (e) {
       addLine(pc, e, e.from.price, e.to.price);
       addLine(rc, e, e.from.rsi, e.to.rsi);
@@ -282,7 +350,7 @@
       markers.push({
         time: e.to.time + TZ, position: low ? 'belowBar' : 'aboveBar', color: HEX[e.type],
         shape: e.potential ? 'circle' : (low ? 'arrowUp' : 'arrowDown'),
-        text: recent.indexOf(e) >= 0 ? label(e.type) + (e.potential ? ' (oluşuyor)' : '') : TYPES[e.type].short
+        text: e === events[events.length - 1] && !narrow() ? label(e.type) : TYPES[e.type].short + (e.potential ? '?' : '')
       });
     });
     markers.sort(function (a, b) { return a.time - b.time; });
@@ -327,6 +395,7 @@
   }
   $('tabs').addEventListener('click', onPick);
   $('receipt').addEventListener('click', onPick);
+  $('receipt').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(e); } });
   $('others').addEventListener('click', onPick);
 
   // --- Tarayıcı bildirimi (sekme açıkken) ------------------------------------
@@ -343,13 +412,13 @@
       if (!r || r.error) return;
       var events = r.pending.concat(r.divs.filter(function (d) { return r.closed.length - 1 - d.confirmIndex <= 2; }));
       events.forEach(function (e) {
-        var k = tf + ':' + e.type + ':' + e.from.time + (e.potential ? ':pot' : ':' + e.to.time);
+        var k = asset + ':' + tf + ':' + e.type + ':' + e.from.time + (e.potential ? ':pot' : ':' + e.to.time);
         if (note.seen[k]) return;
         note.seen[k] = Date.now();
         if (!primed && note.fresh) return; // bildirim yeni açıldıysa mevcutları sessizce işaretle
         try {
-          new Notification('Gümüş ' + TF[tf].label + ': ' + label(e.type) + (e.potential ? ' oluşuyor' : ' onaylandı'), {
-            body: 'Fiyat ' + money(e.from.price) + ' → ' + money(e.to.price) + ' · RSI ' + rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi), tag: k
+          new Notification(A().name + ' ' + TF[tf].label + ': ' + label(e.type) + (e.potential ? ' oluşuyor' : ' onaylandı'), {
+            body: 'Fiyat ' + money(e.from.price) + ' → ' + money(e.to.price) + ' · RSI ' + rsiN(e.from.rsi) + ' → ' + rsiN(e.to.rsi) + ' · Tavsiye değildir', tag: k
           });
         } catch (err) { /* yok say */ }
       });
@@ -360,11 +429,13 @@
   function renderNotify() {
     var b = $('notifyBtn'), n = $('notifyNote');
     if (!('Notification' in window)) { b.disabled = true; n.textContent = 'Bu tarayıcı bildirim desteklemiyor. iPhone’da siteyi “Ana Ekrana Ekle” ile açın veya Telegram kanalını kullanın.'; return; }
-    var on = allowed();
+    var on = allowed(), denied = Notification.permission === 'denied';
     b.classList.toggle('on', on);
-    b.textContent = on ? 'Tarayıcı bildirimi açık ✓' : 'Tarayıcı bildirimi aç';
-    n.textContent = Notification.permission === 'denied' ? 'Bildirim izni engelli; tarayıcı ayarlarından izin verin.'
-      : on ? 'Bu sekme açıkken bildirim gelir. Sekme kapalıyken de haber almak için Telegram kanalına katılın.' : '';
+    b.disabled = denied;
+    b.textContent = denied ? 'Bildirim engelli' : on ? 'Tarayıcı bildirimi açık ✓' : 'Tarayıcı bildirimi aç';
+    n.textContent = denied ? 'Tarayıcı ayarlarından bu site için bildirime izin verin.'
+      : on ? 'Bu sekme açıkken bildirim gelir. Sekme kapalıyken de haber almak için Telegram kanalına katılın.'
+      : 'Bildirim yalnızca bu sekme açıkken gelir.';
   }
   $('notifyBtn').addEventListener('click', function () {
     if (allowed()) { note.on = false; save(); renderNotify(); return; }
@@ -377,8 +448,9 @@
   // --- Başlat ----------------------------------------------------------------
 
   if (CFG.telegramUrl) { $('tgBtn').href = CFG.telegramUrl; $('tgBtn').hidden = false; }
+  else $('notifyBtn').className = 'btn btn-silver';
   $('yr').textContent = new Date().getFullYear();
-  renderTabs(); renderNotify(); renderCards();
+  applyAsset(); renderTabs(); renderNotify(); renderCards();
   loadAll();
   setInterval(function () { if (!document.hidden) loadAll(); }, REFRESH_MS);
 })();
