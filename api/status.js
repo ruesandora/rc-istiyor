@@ -1,22 +1,23 @@
 /*
  * RC — Site verisi: tüm periyotların mumları tek istekte.
- *   GET /api/status → { at, timeframes: { '1d': { source, candles: [[t,o,h,l,c], ...] }, ... } }
- * Vercel CDN'de 60 sn önbelleklenir; Binance'e dakikada en fazla bir kez gidilir.
+ *   GET /api/status → { at, source, symbol, timeframes: { '1d': { candles: [[t,o,h,l,c], ...] } | { error }, ... } }
+ * Veri 5 dk saklanır (lib/market.js); CDN de 5 dk önbellekler.
  */
 'use strict';
 
-const API = require('../js/data.js');
+const { loadMarket, TTL } = require('../lib/market.js');
 
 module.exports = async function handler(req, res) {
-  const out = { at: new Date().toISOString(), timeframes: {} };
-  await Promise.all(Object.keys(API.TIMEFRAMES).map(async tf => {
-    try {
-      const d = await API.loadSilver(tf);
-      out.timeframes[tf] = { source: d.source, candles: d.candles.map(c => [c.time, c.open, c.high, c.low, c.close]) };
-    } catch (e) {
-      out.timeframes[tf] = { error: e.message };
+  try {
+    const m = await loadMarket(process.env);
+    const timeframes = {};
+    for (const [tf, c] of Object.entries(m.timeframes)) {
+      timeframes[tf] = Array.isArray(c) ? { candles: c.map(x => [x.time, x.open, x.high, x.low, x.close]) } : c;
     }
-  }));
-  res.setHeader('cache-control', 'public, s-maxage=60, stale-while-revalidate=300');
-  res.status(200).json(out);
+    const ok = Object.values(timeframes).every(t => t.candles);
+    res.setHeader('cache-control', ok ? `public, s-maxage=${TTL}, stale-while-revalidate=600` : 'public, s-maxage=30');
+    res.status(200).json({ at: m.at, source: m.source, symbol: m.symbol, timeframes });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 };

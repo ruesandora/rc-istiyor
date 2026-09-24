@@ -23,6 +23,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var results = {};           // tf -> { candles, closed, divs, pending, rsi }
   var selected = '1d', firstDraw = true;
+  var market = { source: 'Binance · XAGUSDT perpetual', symbol: CFG.tvSymbol || 'BINANCE:XAGUSDT.P' };
 
   // --- Biçim -----------------------------------------------------------------
 
@@ -79,6 +80,7 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     }).then(function (j) {
+      if (j.source) { market.source = j.source; market.symbol = j.symbol; }
       ORDER.forEach(function (tf) {
         var t = j.timeframes && j.timeframes[tf];
         if (!t || t.error) throw new Error(tf + ': ' + (t ? t.error : 'yok'));
@@ -237,7 +239,8 @@
 
   function drawChart(fit) {
     $('chartTf').textContent = TF[selected].label;
-    $('tvLink').href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(CFG.tvSymbol || 'BINANCE:XAGUSDT.P');
+    $('tvLink').href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(market.symbol);
+    Array.prototype.forEach.call(document.querySelectorAll('.src'), function (el) { el.textContent = market.source; });
     var r = results[selected];
     renderInfo(r);
     if (!r || r.error || !initCharts()) return;

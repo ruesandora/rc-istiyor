@@ -18,7 +18,7 @@
 
 ```
 GitHub Actions (her 10 dk) ──► Vercel /api/check (Frankfurt)
-                                  │  Binance XAGUSDT mumlarını çeker
+                                  │  Twelve Data (spot XAG/USD) veya Binance'ten mumları çeker, 5 dk saklar
                                   │  RSI + uyumsuzluk hesaplar (js/divergence.js)
                                   │  Daha önce gönderildi mi? → Upstash Redis
                                   └► Telegram kanalı / Discord
@@ -43,6 +43,7 @@ Site (`index.html`) aynı motoru tarayıcıda çalıştırır: en üstte Günlü
 
 | Değişken | Örnek | Açıklama |
 |---|---|---|
+| `TWELVEDATA_API_KEY` | *(isteğe bağlı)* | Spot XAG/USD verisi ([twelvedata.com](https://twelvedata.com/register)). Yoksa Binance kullanılır |
 | `TELEGRAM_BOT_TOKEN` | `123456:ABC…` | BotFather'dan |
 | `TELEGRAM_CHAT_ID` | `@rcgumus` | Kanal kullanıcı adı veya `-100…` ID |
 | `CRON_SECRET` | uzun rastgele metin | /api/check'i yalnızca zamanlayıcı çağırabilsin |
