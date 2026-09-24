@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["fra1"],
+  "functions": {
+    "api/check.js": { "maxDuration": 60 }
+  },
+  "headers": [
+    { "source": "/api/(.*)", "headers": [{ "key": "cache-control", "value": "no-store" }] }
+  ]
+}
