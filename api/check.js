@@ -12,6 +12,8 @@
 const API = require('../js/data.js');
 const A = require('../lib/alerts.js');
 const { loadMarket, ASSETS } = require('../lib/market.js');
+const M = require('../lib/mail.js');
+const D = require('../js/divergence.js');
 
 const TTL = 60 * 60 * 24 * 45; // 45 gün
 
@@ -40,7 +42,11 @@ async function run(req, env) {
   const nowSec = Math.floor(Date.now() / 1000);
   const kv = A.store(env);
 
-  if (!dry && !(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) && !env.DISCORD_WEBHOOK_URL) return [500, { error: 'Bildirim kanalı yok: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID veya DISCORD_WEBHOOK_URL tanımlayın.' }];
+  const hasChat = !!((env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) || env.DISCORD_WEBHOOK_URL);
+  if (!dry && !hasChat && !M.configured(env)) return [500, { error: 'Bildirim kanalı yok: Telegram/Discord ya da e-posta (BREVO_API_KEY + MAIL_FROM) tanımlayın.' }];
+  // E-posta daha seyrek: varsayılan yalnızca onaylanan 4 saat / günlük / haftalık sinyaller
+  const mailTfs = list(env.EMAIL_TIMEFRAMES, '4h,1d,1w');
+  const mailPotential = env.EMAIL_POTENTIAL === 'on';
   if (!dry && !kv) return [500, { error: 'Tekrar önleme deposu yok: KV_REST_API_URL / KV_REST_API_TOKEN (veya UPSTASH_REDIS_REST_*) tanımlayın.' }];
 
   const assets = list(env.ALERT_ASSETS, 'silver,gold').filter(a => ASSETS.includes(a));
@@ -70,7 +76,14 @@ async function run(req, env) {
         let fresh;
         try { fresh = await kv.claim(key, TTL); } catch (err) { report.errors.push(err.message); continue; }
         if (!fresh) { item.status = 'zaten gönderildi'; continue; }
-        const result = await A.broadcast(A.formatMessage(e, tf, env.SITE_URL, asset), env);
+        const text = A.formatMessage(e, tf, env.SITE_URL, asset);
+        const result = hasChat ? await A.broadcast(text, env) : {};
+        if (mailTfs.includes(tf) && (e.kind === 'confirmed' || mailPotential)) {
+          const name = API.ASSETS[asset].name, t = D.TYPES[e.type].label;
+          const subject = `${name} · ${API.TIMEFRAMES[tf].label}: ${t} ${e.kind === 'potential' ? 'uyumsuzluk oluşuyor' : 'uyumsuzluk onaylandı'}`;
+          try { result.mail = await M.broadcastMail(env, subject, text); } catch (err) { result.mail = { error: err.message }; }
+          if (result.mail && result.mail.sent) result.mail.ok = true;
+        }
         item.status = result;
         const failed = Object.values(result).some(r => r.error) && !Object.values(result).some(r => r.ok);
         if (failed) { await kv.release(key); report.errors.push(JSON.stringify(result)); } else report.sent++;

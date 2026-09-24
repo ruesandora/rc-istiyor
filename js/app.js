@@ -448,7 +448,28 @@
   // --- Başlat ----------------------------------------------------------------
 
   if (CFG.telegramUrl) { $('tgBtn').href = CFG.telegramUrl; $('tgBtn').hidden = false; }
-  else $('notifyBtn').className = 'btn btn-silver';
+
+  // --- E-posta aboneliği -------------------------------------------------------
+
+  $('mailForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var input = $('mailInput'), btn = $('mailBtn'), note = $('mailNote'), email = input.value.trim();
+    note.className = 'mb-note';
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) { note.className = 'mb-note err'; note.textContent = 'Geçerli bir e-posta adresi yazın.'; input.focus(); return; }
+    btn.disabled = true; btn.textContent = 'Kaydediliyor…';
+    fetch('/api/subscribe', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: email, website: this.website.value })
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) throw new Error(x.j.error || 'Kaydedilemedi');
+        note.className = 'mb-note ok';
+        note.textContent = x.j.already ? 'Bu adres zaten kayıtlı ✓' : 'Abone oldun ✓ Uyumsuzluk onaylandığında e-posta gelecek.';
+        input.value = '';
+      })
+      .catch(function (e) { note.className = 'mb-note err'; note.textContent = e.message === 'Failed to fetch' ? 'Bağlantı hatası, tekrar deneyin.' : e.message; })
+      .then(function () { btn.disabled = false; btn.textContent = 'Abone ol'; });
+  });
   $('yr').textContent = new Date().getFullYear();
   applyAsset(); renderTabs(); renderNotify(); renderCards();
   loadAll();

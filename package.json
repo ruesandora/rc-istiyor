@@ -4,7 +4,7 @@
   "description": "RC · Rues Community — Gümüş RSI uyumsuzluk tarayıcısı ve bildirim botu",
   "engines": { "node": ">=20" },
   "scripts": {
-    "test": "node tests/divergence.test.js && node tests/api.test.js && node tests/twelvedata.test.js && node tests/oanda.test.js && node tests/yahoo.test.js",
+    "test": "node tests/divergence.test.js && node tests/api.test.js && node tests/twelvedata.test.js && node tests/oanda.test.js && node tests/yahoo.test.js && node tests/mail.test.js",
     "dev": "npx vercel dev"
   }
 }

@@ -324,3 +324,17 @@ body[data-asset="gold"] .hl, body[data-asset="gold"] .logo span, body[data-asset
   .list td:nth-child(3), .list td:nth-child(4) { font-size: 14px; }
   .list tr:last-child { border-bottom: 0; }
 }
+
+/* E-posta aboneliği */
+.mailbox { max-width: 520px; margin: 0 0 18px; }
+.mb-label { display: block; font-family: var(--display); font-weight: 700; font-size: 19px; margin-bottom: 10px; }
+.mb-row { display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px; transition: border-color .16s, box-shadow .16s; }
+.mb-row:focus-within { border-color: var(--silver); box-shadow: 0 0 0 3px rgba(217, 221, 227, .15); }
+.mb-row input { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--text); font: 400 16px var(--body); padding: 0 16px; outline: none; }
+.mb-row input::placeholder { color: var(--muted); }
+.mb-row .btn { height: 44px; }
+.mb-note { font-size: 13.5px; color: var(--muted); margin: 10px 4px 0; }
+.mb-note.ok { color: var(--bull); font-weight: 600; }
+.mb-note.err { color: var(--bear); font-weight: 600; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+@media (max-width: 700px) { .mb-row .btn { padding: 0 16px; } }

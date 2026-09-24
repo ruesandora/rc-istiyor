@@ -50,6 +50,10 @@ Site (`index.html`) aynı motoru tarayıcıda çalıştırır: en üstte Günlü
 | `TELEGRAM_CHAT_ID` | `@rcgumus` | Kanal kullanıcı adı veya `-100…` ID |
 | `CRON_SECRET` | uzun rastgele metin | /api/check'i yalnızca zamanlayıcı çağırabilsin |
 | `SITE_URL` | `https://rc-gumus.vercel.app` | Mesajdaki "Grafiği aç" linki |
+| `BREVO_API_KEY` | *(e-posta için)* | [brevo.com](https://www.brevo.com) ücretsiz planı (300 e-posta/gün, alan adı gerekmez). Alternatif: `RESEND_API_KEY` |
+| `MAIL_FROM` | `RC Bildirim <adres@gmail.com>` | Gönderen; Brevo'da “Senders” altında doğrulanmış olmalı |
+| `EMAIL_TIMEFRAMES` | `4h,1d,1w` | E-posta gidecek periyotlar (varsayılan: yalnızca onaylananlar; `EMAIL_POTENTIAL=on` ile oluşanlar da) |
+| `SUBSCRIBE_SECRET` | *(isteğe bağlı)* | Abonelikten çıkış linki imzası; yoksa `CRON_SECRET` kullanılır |
 | `DISCORD_WEBHOOK_URL` | *(isteğe bağlı)* | Discord kanalına da gönderir |
 | `ALERT_ASSETS` | `silver,gold` | Bildirim gönderilecek metaller |
 | `ALERT_TIMEFRAMES` | `1d,4h,1h,1w` | Taranacak periyotlar |
@@ -79,6 +83,7 @@ npx vercel dev                  # API dahil yerelde çalıştır
 - `js/app.js`: durum kartları, TradingView grafiği, liste, tarayıcı bildirimleri
 - `js/config.js`: Telegram linki ve grafik sembolü
 - `lib/alerts.js`: bildirim mantığı, mesaj biçimi, Telegram/Discord, Redis
-- `api/check.js`: Vercel fonksiyonu
+- `api/check.js`: Vercel fonksiyonu (Telegram/Discord/e-posta bildirimi)
+- `api/subscribe.js`, `api/unsubscribe.js`, `lib/mail.js`: e-posta aboneliği (Redis `rc:subs`), imzalı çıkış linki
 
 > ⚠️ Yatırım tavsiyesi değildir. Yalnızca eğitim ve bilgilendirme amaçlıdır.

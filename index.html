@@ -35,6 +35,15 @@
         <p class="eyebrow"><span class="live" id="live"></span><span id="updated">Yükleniyor…</span></p>
         <h1><span id="heroLoc">Gümüşte</span> <span class="hl">uyumsuzluk</span> var mı?</h1>
         <p class="lead">RSI göstergesi ile fiyatın ters yöne gittiği anları günlük, 4 saatlik, 1 saatlik ve haftalık grafikte tarar. İsterseniz işaret oluşunca ve kesinleşince haber verir.</p>
+        <form class="mailbox" id="mailForm" novalidate>
+          <label for="mailInput" class="mb-label">✉️ E-postayla haber al</label>
+          <div class="mb-row">
+            <input type="email" id="mailInput" name="email" placeholder="ornek@mail.com" autocomplete="email" inputmode="email" required>
+            <button class="btn btn-silver" type="submit" id="mailBtn">Abone ol</button>
+          </div>
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <p class="mb-note" id="mailNote" aria-live="polite">Onaylanan uyumsuzluklarda (4 saat, günlük, haftalık) e-posta gelir. Her e-postada tek tıkla ayrılabilirsin; adresin başka amaçla kullanılmaz.</p>
+        </form>
         <div class="hero-actions">
           <a class="btn btn-silver" id="tgBtn" href="#" target="_blank" rel="noopener" hidden>Telegram kanalına katıl</a>
           <button class="btn btn-ghost" id="notifyBtn" type="button">Tarayıcı bildirimi aç</button>
