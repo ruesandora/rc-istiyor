@@ -20,7 +20,8 @@
     hbear: { key: 'hbear', label: 'Gizli Negatif',  short: 'GN', side: 'high', color: '#e6b877', hidden: true,  desc: 'Fiyat daha düşük tepe, RSI daha yüksek tepe — düşüş trendi devam sinyali' }
   };
 
-  var DEFAULTS = { period: 14, left: 5, right: 5, minRange: 5, maxRange: 60 };
+  // minRight: "oluşuyor" demek için aday dipten/tepeden sonra en az kaç mum görülmeli
+  var DEFAULTS = { period: 14, left: 5, right: 5, minRange: 5, maxRange: 60, minRight: 2 };
 
   /** Wilder RSI. İlk `period` değer null döner. */
   function rsi(closes, period) {
@@ -147,6 +148,9 @@
         if (ok) cand = j;
       }
       if (cand < 0) return;
+      // Erken alarmı azalt: adaydan sonra en az minRight mum geçmiş ve RSI dönmüş olmalı
+      if (n - 1 - cand < o.minRight) return;
+      if (side === 'low' ? !(r[n - 1] > r[cand]) : !(r[n - 1] < r[cand])) return;
       var dist = cand - a;
       if (dist < o.minRange || dist > o.maxRange) return;
       var A = point(candles, r, a, side), B = point(candles, r, cand, side);

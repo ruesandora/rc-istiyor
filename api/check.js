@@ -11,7 +11,7 @@
 
 const API = require('../js/data.js');
 const A = require('../lib/alerts.js');
-const { loadMarket } = require('../lib/market.js');
+const { loadMarket, ASSETS } = require('../lib/market.js');
 
 const TTL = 60 * 60 * 24 * 45; // 45 gün
 
@@ -30,7 +30,7 @@ async function run(req, env) {
   if (!dry && !authorized(req, env)) return [401, { error: 'Yetkisiz. Önizleme için ?dry=1 kullanın.' }];
 
   if (q.test === '1') {
-    const text = '✅ <b>RC Gümüş RSI</b> bildirim testi\nKanal bağlantısı çalışıyor.' + (env.SITE_URL ? `\n\n<a href="${env.SITE_URL}">Siteyi aç →</a>` : '');
+    const text = '✅ <b>RC Gümüş & Altın RSI</b> bildirim testi\nKanal bağlantısı çalışıyor.' + (env.SITE_URL ? `\n\n<a href="${env.SITE_URL}">Siteyi aç →</a>` : '');
     return [200, { test: true, result: await A.broadcast(text, env) }];
   }
 
@@ -43,18 +43,19 @@ async function run(req, env) {
   if (!dry && !(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) && !env.DISCORD_WEBHOOK_URL) return [500, { error: 'Bildirim kanalı yok: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID veya DISCORD_WEBHOOK_URL tanımlayın.' }];
   if (!dry && !kv) return [500, { error: 'Tekrar önleme deposu yok: KV_REST_API_URL / KV_REST_API_TOKEN (veya UPSTASH_REDIS_REST_*) tanımlayın.' }];
 
-  const report = { dry, at: new Date().toISOString(), timeframes: [], sent: 0, errors: [] };
-  const market = await loadMarket(env);
-  report.source = market.source;
-  if (market.warning) report.warning = market.warning;
+  const assets = list(env.ALERT_ASSETS, 'silver,gold').filter(a => ASSETS.includes(a));
+  const report = { dry, at: new Date().toISOString(), timeframes: [], sources: {}, sent: 0, errors: [] };
 
-  {
+  for (const asset of assets) {
+    const market = await loadMarket(env, asset);
+    report.sources[asset] = market.source;
+    if (market.warning) report.errors.push(`${asset}: ${market.warning}`);
     for (const tf of tfs) {
-      const row = { tf };
+      const row = { asset, tf };
       report.timeframes.push(row);
       let data;
       const c = market.timeframes[tf];
-      if (!Array.isArray(c)) { row.error = c ? c.error : 'veri yok'; report.errors.push(`${tf}: ${row.error}`); continue; }
+      if (!Array.isArray(c)) { row.error = c ? c.error : 'veri yok'; report.errors.push(`${asset}/${tf}: ${row.error}`); continue; }
       data = { candles: c };
       const ev = A.evaluate(data.candles, tf, {}, nowSec);
       row.lastClose = ev.closed.length ? ev.closed[ev.closed.length - 1].close : null;
@@ -62,14 +63,14 @@ async function run(req, env) {
       const events = ev.confirmed.concat(withPotential ? ev.potential : []).filter(x => types.includes(x.type));
       row.events = [];
       for (const e of events) {
-        const key = A.dedupeKey(e, tf);
+        const key = A.dedupeKey(e, tf, asset);
         const item = { kind: e.kind, type: e.type, from: e.from, to: e.to, barsLeft: e.barsLeft, key };
         row.events.push(item);
-        if (dry) { item.message = A.formatMessage(e, tf, env.SITE_URL); continue; }
+        if (dry) { item.message = A.formatMessage(e, tf, env.SITE_URL, asset); continue; }
         let fresh;
         try { fresh = await kv.claim(key, TTL); } catch (err) { report.errors.push(err.message); continue; }
         if (!fresh) { item.status = 'zaten gönderildi'; continue; }
-        const result = await A.broadcast(A.formatMessage(e, tf, env.SITE_URL), env);
+        const result = await A.broadcast(A.formatMessage(e, tf, env.SITE_URL, asset), env);
         item.status = result;
         const failed = Object.values(result).some(r => r.error) && !Object.values(result).some(r => r.ok);
         if (failed) { await kv.release(key); report.errors.push(JSON.stringify(result)); } else report.sent++;

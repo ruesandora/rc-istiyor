@@ -1,6 +1,6 @@
-# RC. · Gümüş RSI Uyumsuzluk
+# RC. · Gümüş & Altın RSI Uyumsuzluk
 
-**Rues Community (RC)** gümüş yatırımcıları için RSI uyumsuzluk (divergence) tarayıcısı ve bildirim botu.
+**Rues Community (RC)** gümüş ve altın yatırımcıları için RSI uyumsuzluk (divergence) tarayıcısı ve bildirim botu. Sağ üstten metal seçilir (`#altin` ile doğrudan altın açılır).
 
 | Tür | Anlamı |
 |---|---|
@@ -51,6 +51,7 @@ Site (`index.html`) aynı motoru tarayıcıda çalıştırır: en üstte Günlü
 | `CRON_SECRET` | uzun rastgele metin | /api/check'i yalnızca zamanlayıcı çağırabilsin |
 | `SITE_URL` | `https://rc-gumus.vercel.app` | Mesajdaki "Grafiği aç" linki |
 | `DISCORD_WEBHOOK_URL` | *(isteğe bağlı)* | Discord kanalına da gönderir |
+| `ALERT_ASSETS` | `silver,gold` | Bildirim gönderilecek metaller |
 | `ALERT_TIMEFRAMES` | `1d,4h,1h,1w` | Taranacak periyotlar |
 | `ALERT_POTENTIAL` | `on` | `off` → yalnızca onaylananlar |
 

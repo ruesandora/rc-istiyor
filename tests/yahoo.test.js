@@ -30,6 +30,14 @@ function chart(step, n, withNull) {
   assert.ok(all['4h'].every(c => c.time % 14400 === 0));
   console.log('✓ Yahoo SI=F: 3 istekle 4 periyot, boş mumlar atlanıyor');
 
+  // Altın: GC=F
+  const gold = [];
+  global.fetch = async url => { gold.push(new URL(String(url)).pathname); const iv = new URL(String(url)).searchParams.get('interval'); return { ok: true, status: 200, json: async () => chart({ '1h': 3600, '1d': 86400, '1wk': 604800 }[iv], 60) }; };
+  await Y.loadAll('gold');
+  assert.ok(gold.every(p => p.endsWith('/GC=F')), gold.join(','));
+  assert.strictEqual(Y.symbol('gold'), 'COMEX:GC1!');
+  console.log('✓ Altın için GC=F kullanılıyor');
+
   global.fetch = async () => ({ ok: false, status: 404, json: async () => ({ chart: { result: null, error: { code: 'Not Found', description: 'No data found' } } }) });
   await assert.rejects(Y.loadAll(), /No data found/);
   console.log('✓ Yahoo hatası açık mesaj verir');
