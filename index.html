@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RC Gümüş RSI Uyumsuzluk</title>
+  <meta name="description" content="Rues Community (RC) — Gümüş (XAG) için pozitif, negatif, gizli pozitif ve gizli negatif RSI uyumsuzluk tarayıcısı.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23c0c7d1'/%3E%3Ctext x='32' y='42' font-family='Arial' font-weight='800' font-size='28' text-anchor='middle' fill='%230b0f14'%3ERC%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="#">
+        <span class="logo">RC</span>
+        <span class="brand-text"><strong>Rues Community</strong><small>Gümüş RSI Uyumsuzluk</small></span>
+      </a>
+      <div class="live" id="live"><span class="dot"></span><span id="liveText">Bağlanıyor…</span></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Özet -->
+    <section class="stats">
+      <div class="stat">
+        <span class="stat-k">Gümüş <span id="unitLabel">XAG/USD (ons)</span></span>
+        <span class="stat-v mono" id="price">—</span>
+        <span class="stat-s" id="change">&nbsp;</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">RSI (<span id="rsiPeriodLabel">14</span>) · <span id="tfLabel">4 saat</span></span>
+        <span class="stat-v mono" id="rsiNow">—</span>
+        <span class="stat-s" id="rsiZone">&nbsp;</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">Son uyumsuzluk</span>
+        <span class="stat-v" id="lastSig">—</span>
+        <span class="stat-s" id="lastSigAge">&nbsp;</span>
+      </div>
+    </section>
+
+    <!-- Kontroller -->
+    <section class="panel controls">
+      <div class="seg" id="tfSeg" role="tablist" aria-label="Zaman dilimi"></div>
+      <div class="seg" id="unitSeg" aria-label="Birim">
+        <button data-unit="usd" class="on">Ons ($)</button>
+        <button data-unit="try">Gram (₺)</button>
+      </div>
+      <div class="chips" id="typeChips"></div>
+      <details class="settings">
+        <summary>Ayarlar</summary>
+        <div class="settings-grid">
+          <label>RSI periyodu <input type="number" id="optPeriod" min="2" max="50" value="14"></label>
+          <label>Pivot sol <input type="number" id="optLeft" min="1" max="20" value="5"></label>
+          <label>Pivot sağ <input type="number" id="optRight" min="1" max="20" value="5"></label>
+          <label>Min. aralık <input type="number" id="optMin" min="1" max="200" value="5"></label>
+          <label>Maks. aralık <input type="number" id="optMax" min="5" max="300" value="60"></label>
+          <label class="file">CSV yükle <input type="file" id="csvFile" accept=".csv,.txt"></label>
+          <button class="btn ghost" id="resetBtn" type="button">Varsayılana dön</button>
+        </div>
+        <p class="hint">CSV: başlık satırında <code>date, open, high, low, close</code> (veya Türkçe: tarih, açılış, yüksek, düşük, kapanış) sütunları olmalı. CSV yüklendiğinde canlı veri durur; tekrar canlı veriye dönmek için bir zaman dilimine tıklayın.</p>
+      </details>
+    </section>
+
+    <div class="notice" id="notice" hidden></div>
+
+    <!-- Grafik -->
+    <section class="panel chart-panel">
+      <div class="legend" id="legend"></div>
+      <div id="priceChart" class="chart price"></div>
+      <div class="rsi-head"><span>RSI</span><span class="mono" id="rsiHover"></span></div>
+      <div id="rsiChart" class="chart rsi"></div>
+      <div class="source" id="source">&nbsp;</div>
+    </section>
+
+    <div class="grid2">
+      <!-- Tarayıcı -->
+      <section class="panel">
+        <div class="panel-h">
+          <h2>Çoklu zaman dilimi tarayıcı</h2>
+          <button class="btn ghost small" id="scanBtn" type="button">Yenile</button>
+        </div>
+        <div class="scanner" id="scanner"></div>
+        <p class="hint">Her zaman diliminde tespit edilen en son uyumsuzluk. “Taze” = son 10 mum içinde onaylandı.</p>
+      </section>
+
+      <!-- Sinyal listesi -->
+      <section class="panel">
+        <div class="panel-h"><h2>Tespit edilen uyumsuzluklar</h2><span class="count" id="sigCount"></span></div>
+        <div class="table-wrap">
+          <table class="sigs">
+            <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat</th><th>RSI</th><th>Ne zaman</th></tr></thead>
+            <tbody id="sigBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- Eğitim -->
+    <section class="learn">
+      <h2>Uyumsuzluk türleri</h2>
+      <p class="lead">Uyumsuzluk, fiyat ile RSI’ın farklı yöne işaret etmesidir. Normal uyumsuzluklar olası <b>dönüşü</b>, gizli uyumsuzluklar ise mevcut trendin <b>devamını</b> işaret eder.</p>
+      <div class="cards" id="learnCards"></div>
+    </section>
+
+    <p class="disclaimer">⚠️ Bu site yalnızca eğitim ve bilgilendirme amaçlıdır; <b>yatırım tavsiyesi değildir</b>. Uyumsuzluklar pivot onayı için birkaç mum gecikmeyle oluşur ve tek başına işlem kararı için yeterli değildir. Gram (₺) fiyatı, ons fiyatı ve USDT/TRY kurundan yaklaşık olarak hesaplanır.</p>
+  </main>
+
+  <footer class="foot"><div class="wrap">© <span id="yr"></span> RC · Rues Community</div></footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="js/divergence.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
