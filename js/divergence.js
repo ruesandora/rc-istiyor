@@ -14,10 +14,10 @@
   'use strict';
 
   var TYPES = {
-    bull:  { key: 'bull',  label: 'Pozitif',        short: 'P',  side: 'low',  color: '#22c55e', hidden: false, desc: 'Fiyat daha düşük dip, RSI daha yüksek dip — yükseliş dönüşü sinyali' },
-    bear:  { key: 'bear',  label: 'Negatif',        short: 'N',  side: 'high', color: '#ef4444', hidden: false, desc: 'Fiyat daha yüksek tepe, RSI daha düşük tepe — düşüş dönüşü sinyali' },
-    hbull: { key: 'hbull', label: 'Gizli Pozitif',  short: 'GP', side: 'low',  color: '#38bdf8', hidden: true,  desc: 'Fiyat daha yüksek dip, RSI daha düşük dip — yükseliş trendi devam sinyali' },
-    hbear: { key: 'hbear', label: 'Gizli Negatif',  short: 'GN', side: 'high', color: '#f59e0b', hidden: true,  desc: 'Fiyat daha düşük tepe, RSI daha yüksek tepe — düşüş trendi devam sinyali' }
+    bull:  { key: 'bull',  label: 'Pozitif',        short: 'P',  side: 'low',  color: '#8fe3b0', hidden: false, desc: 'Fiyat daha düşük dip, RSI daha yüksek dip — yükseliş dönüşü sinyali' },
+    bear:  { key: 'bear',  label: 'Negatif',        short: 'N',  side: 'high', color: '#ff7a66', hidden: false, desc: 'Fiyat daha yüksek tepe, RSI daha düşük tepe — düşüş dönüşü sinyali' },
+    hbull: { key: 'hbull', label: 'Gizli Pozitif',  short: 'GP', side: 'low',  color: '#9cc9ff', hidden: true,  desc: 'Fiyat daha yüksek dip, RSI daha düşük dip — yükseliş trendi devam sinyali' },
+    hbear: { key: 'hbear', label: 'Gizli Negatif',  short: 'GN', side: 'high', color: '#e6b877', hidden: true,  desc: 'Fiyat daha düşük tepe, RSI daha yüksek tepe — düşüş trendi devam sinyali' }
   };
 
   var DEFAULTS = { period: 14, left: 5, right: 5, minRange: 5, maxRange: 60 };

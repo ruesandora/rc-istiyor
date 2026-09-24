@@ -55,34 +55,46 @@
     return m + ' dk';
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function badge(type) { var t = TYPES[type]; return '<span class="badge" style="--c:' + t.color + '">' + t.label + '</span>'; }
+  function badge(type, extra) { var t = TYPES[type]; return '<span class="sig' + (t.hidden ? ' dash' : '') + (extra ? ' ' + extra : '') + '" style="--c:' + t.color + '">' + t.label + '</span>'; }
 
   // --- Grafikler ------------------------------------------------------------
 
   var chartOpts = {
     autoSize: true,
-    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#8b97a8', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 11 },
-    grid: { vertLines: { color: '#1a2230' }, horzLines: { color: '#1a2230' } },
-    rightPriceScale: { borderColor: '#222c3a', minimumWidth: 72 },
-    timeScale: { borderColor: '#222c3a', timeVisible: true, secondsVisible: false, rightOffset: 6 },
-    crosshair: { mode: 0, vertLine: { color: '#5b6b82', labelBackgroundColor: '#2a3547' }, horzLine: { color: '#5b6b82', labelBackgroundColor: '#2a3547' } },
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: 'rgba(233,232,228,.55)', fontFamily: "'Inter Tight', 'Helvetica Neue', Arial, sans-serif", fontSize: 11 },
+    grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(233,232,228,.05)' } },
+    rightPriceScale: { borderVisible: false, minimumWidth: 72 },
+    timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 6 },
+    crosshair: { mode: 0,
+      vertLine: { color: 'rgba(233,232,228,.35)', width: 1, style: 3, labelBackgroundColor: '#e9e8e4' },
+      horzLine: { color: 'rgba(233,232,228,.35)', width: 1, style: 3, labelBackgroundColor: '#e9e8e4' } },
     localization: { locale: 'tr-TR', priceFormatter: function (v) { return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } }
   };
 
   var priceChart = LWC.createChart($('priceChart'), chartOpts);
   var rsiChart = LWC.createChart($('rsiChart'), Object.assign({}, chartOpts, {
-    rightPriceScale: { borderColor: '#222c3a', minimumWidth: 72, scaleMargins: { top: 0.08, bottom: 0.08 } }
+    rightPriceScale: { borderVisible: false, minimumWidth: 72, scaleMargins: { top: 0.08, bottom: 0.08 } }
   }));
 
   var candleSeries = priceChart.addCandlestickSeries({
-    upColor: '#d6dbe2', downColor: '#5b6677', borderVisible: false,
-    wickUpColor: '#d6dbe2', wickDownColor: '#5b6677'
+    upColor: '#e9e8e4', downColor: '#0b0b0c', borderUpColor: '#e9e8e4', borderDownColor: 'rgba(233,232,228,.5)',
+    wickUpColor: 'rgba(233,232,228,.75)', wickDownColor: 'rgba(233,232,228,.4)'
   });
-  var rsiSeries = rsiChart.addLineSeries({ color: '#c0c7d1', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerRadius: 3 });
+  var rsiSeries = rsiChart.addLineSeries({ color: '#e9e8e4', lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, crosshairMarkerRadius: 3 });
   rsiSeries.applyOptions({ autoscaleInfoProvider: function () { return { priceRange: { minValue: 0, maxValue: 100 } }; } });
-  [[70, '#ef444488'], [50, '#8b97a855'], [30, '#22c55e88']].forEach(function (l) {
-    rsiSeries.createPriceLine({ price: l[0], color: l[1], lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '' });
+  [[70, 'rgba(255,122,102,.45)'], [50, 'rgba(233,232,228,.15)'], [30, 'rgba(143,227,176,.45)']].forEach(function (l) {
+    rsiSeries.createPriceLine({ price: l[0], color: l[1], lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
   });
+
+  // Web yazı tipi grafikten sonra yüklenirse eksen metinleri yanlış ölçülür; yüklenince yeniden uygula
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      [priceChart, rsiChart].forEach(function (c) {
+        c.applyOptions({ layout: { fontFamily: 'monospace' } });
+        c.applyOptions({ layout: { fontFamily: chartOpts.layout.fontFamily } });
+      });
+    });
+  }
 
   // Zaman eksenlerini senkronize et
   var syncing = false;
@@ -103,7 +115,7 @@
       if (row) {
         var v = valueOf(row);
         if (v != null && dst.setCrosshairPosition) dst.setCrosshairPosition(v, p.time, dstSeries);
-        $('rsiHover').textContent = fmtDate(row.c.time, state.tf) + '  ·  RSI ' + fmtRsi(row.r) + '  ·  K ' + fmtPrice(row.c.close);
+        $('rsiHover').textContent = fmtDate(row.c.time, state.tf) + '   RSI ' + fmtRsi(row.r) + '   K ' + currency() + fmtPrice(row.c.close);
       }
     });
   }
@@ -118,7 +130,7 @@
   function addLine(chart, type, a, b) {
     var t = TYPES[type];
     var s = chart.addLineSeries({
-      color: t.color, lineWidth: 2, lineStyle: t.hidden ? 2 : 0,
+      color: t.color, lineWidth: 2, lineStyle: t.hidden ? 2 : 0, lastPriceAnimation: 0,
       lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false
     });
     s.setData([{ time: a.time + TZ_SHIFT, value: a.v }, { time: b.time + TZ_SHIFT, value: b.v }]);
@@ -167,8 +179,8 @@
       setLive('demo', 'Demo veri');
       notice('Canlı gümüş verisine şu an ulaşılamadı; ekranda <b>örnek (demo) veri</b> gösteriliyor. ' +
         'Ağ bağlantınızı kontrol edip tekrar deneyin veya Ayarlar’dan kendi CSV dosyanızı yükleyin.' +
-        '<button class="btn small" id="retryBtn" type="button">Tekrar dene</button>' +
-        '<br><small style="opacity:.75">' + esc(e && e.message ? e.message : e) + '</small>', 'err');
+        '<button class="link" id="retryBtn" type="button">Tekrar dene</button>' +
+        '<small>' + esc(e && e.message ? e.message : e) + '</small>', 'err');
       var rb = $('retryBtn'); if (rb) rb.onclick = function () { state.fitNext = true; load(true); runScanner(true); };
       analyze();
     });
@@ -214,45 +226,46 @@
 
     // Özet
     var last = candles[n - 1], prev = candles[n - 2] || last;
-    $('unitLabel').textContent = state.unit === 'try' ? 'gram / ₺' : 'XAG/USD (ons)';
-    $('price').textContent = currency() + ' ' + fmtPrice(last.close);
+    $('unitLabel').textContent = state.unit === 'try' ? 'Gram — ₺' : 'XAG/USD — ons';
+    $('cur').textContent = currency();
+    $('price').textContent = fmtPrice(last.close);
     var ch = (last.close - prev.close) / prev.close * 100;
     $('change').innerHTML = '<span class="' + (ch >= 0 ? 'up' : 'down') + '">' + (ch >= 0 ? '▲ ' : '▼ ') +
-      Math.abs(ch).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + '%</span> son mum';
+      Math.abs(ch).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + '%</span>&nbsp;&nbsp;son mum · ' + (state.mode === 'csv' ? 'CSV' : TF[state.tf].label);
     var r = res.rsi[n - 1];
     $('rsiNow').textContent = fmtRsi(r);
     $('rsiNow').style.color = r >= 70 ? 'var(--bear)' : r <= 30 ? 'var(--bull)' : '';
+    $('gaugePin').style.left = (r == null ? 50 : Math.max(0, Math.min(100, r))) + '%';
     $('rsiZone').textContent = r == null ? '' : r >= 70 ? 'Aşırı alım bölgesi' : r <= 30 ? 'Aşırı satım bölgesi' : r >= 50 ? 'Nötr · alıcılar önde' : 'Nötr · satıcılar önde';
     $('rsiPeriodLabel').textContent = state.opts.period;
     $('tfLabel').textContent = state.mode === 'csv' ? 'CSV' : TF[state.tf].label;
 
     var lastDiv = visible[visible.length - 1];
     if (lastDiv) {
-      $('lastSig').innerHTML = badge(lastDiv.type);
+      $('lastSig').innerHTML = badge(lastDiv.type, 'metric-sig');
       $('lastSigAge').textContent = fmtDate(lastDiv.to.time, state.tf) + ' · ' + ago(n - 1 - lastDiv.to.i, state.mode === 'csv' ? null : state.tf);
     } else {
-      $('lastSig').textContent = 'Yok';
+      $('lastSig').innerHTML = '<span class="metric-sig" style="color:var(--faint)">Sessiz</span>';
       $('lastSigAge').textContent = 'Seçili türlerde uyumsuzluk bulunamadı';
     }
 
     $('source').textContent = 'Kaynak: ' + state.source + ' · ' + n + ' mum · Saatler Türkiye saatidir (UTC+3). Uyumsuzluk, pivotun sağında ' + state.opts.right + ' mum oluştuktan sonra onaylanır.';
     renderTable(visible, n);
-    renderLegend();
   }
 
   function renderTable(list, n) {
     var body = $('sigBody');
-    $('sigCount').textContent = list.length ? list.length + ' adet' : '';
+    $('sigCount').textContent = list.length ? list.length + ' kayıt' : '';
     if (!list.length) { body.innerHTML = '<tr><td colspan="5" class="empty">Uyumsuzluk bulunamadı.</td></tr>'; return; }
     var tf = state.mode === 'csv' ? null : state.tf;
     body.innerHTML = list.slice().reverse().map(function (x, k) {
       var cur = currency();
       return '<tr data-i="' + x.to.i + '">' +
         '<td>' + badge(x.type) + '</td>' +
-        '<td class="mono">' + fmtDate(x.to.time, state.tf) + '</td>' +
-        '<td class="mono">' + cur + fmtPrice(x.from.price) + ' → ' + cur + fmtPrice(x.to.price) + '</td>' +
-        '<td class="mono">' + fmtRsi(x.from.rsi) + ' → ' + fmtRsi(x.to.rsi) + '</td>' +
-        '<td title="' + (n - 1 - x.to.i) + ' mum önce">' + (tf ? humanDur((n - 1 - x.to.i) * TF[tf].seconds) + ' önce' : (n - 1 - x.to.i) + ' mum önce') + '</td></tr>';
+        '<td>' + fmtDate(x.to.time, state.tf) + '</td>' +
+        '<td class="r">' + cur + fmtPrice(x.from.price) + '<span class="arrow">→</span>' + cur + fmtPrice(x.to.price) + '</td>' +
+        '<td class="r">' + fmtRsi(x.from.rsi) + '<span class="arrow">→</span>' + fmtRsi(x.to.rsi) + '</td>' +
+        '<td class="r" title="' + (n - 1 - x.to.i) + ' mum önce">' + (tf ? humanDur((n - 1 - x.to.i) * TF[tf].seconds) + ' önce' : (n - 1 - x.to.i) + ' mum önce') + '</td></tr>';
     }).join('');
   }
 
@@ -264,14 +277,7 @@
     $('priceChart').scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 
-  function renderLegend() {
-    $('legend').innerHTML = TYPE_ORDER.filter(function (k) { return state.show[k]; }).map(function (k) {
-      var t = TYPES[k];
-      return '<span><i class="' + (t.hidden ? 'dash' : '') + '" style="--c:' + t.color + '"></i>' + t.label + ' (' + t.short + ')</span>';
-    }).join('');
-  }
-
-  // --- Çoklu zaman dilimi tarayıcı ----------------------------------------
+  // --- Periyot matrisi -----------------------------------------------------
 
   var scanSeq = 0;
   function runScanner(force) {
@@ -279,7 +285,10 @@
     var tfs = Object.keys(TF);
     if (!box.children.length || force) {
       box.innerHTML = tfs.map(function (tf) {
-        return '<div class="scan-row" data-tf="' + tf + '"><span class="scan-tf">' + TF[tf].label + '</span><span class="scan-sig"><small>Taranıyor…</small></span><span class="scan-rsi"></span></div>';
+        return '<button type="button" class="cell" data-tf="' + tf + '">' +
+          '<span class="cell-tf"><span>' + TF[tf].label + '</span><span class="cell-rsi">RSI —</span></span>' +
+          '<span class="cell-sig none">Taranıyor</span><span class="cell-age">&nbsp;</span>' +
+          '<span class="cell-bar"><i style="left:50%"></i></span></button>';
       }).join('');
     }
     markActiveScan();
@@ -289,21 +298,27 @@
         var res = D.findDivergences(d.candles, state.opts);
         var list = res.divergences.filter(function (x) { return state.show[x.type]; });
         var n = d.candles.length, last = list[list.length - 1], r = res.rsi[n - 1];
-        var row = box.querySelector('[data-tf="' + tf + '"]');
-        if (!row) return;
-        var sig = row.querySelector('.scan-sig');
+        var cell = box.querySelector('[data-tf="' + tf + '"]');
+        if (!cell) return;
+        var sig = cell.querySelector('.cell-sig'), age = cell.querySelector('.cell-age');
         if (last) {
-          var bars = n - 1 - last.to.i;
           var fresh = (n - 1 - last.confirmIndex) <= FRESH_BARS;
-          sig.innerHTML = '<span>' + badge(last.type) + (fresh ? '<span class="fresh">Taze</span>' : '') + '</span><small>' + ago(bars, tf) + '</small>';
+          sig.className = 'cell-sig';
+          sig.innerHTML = badge(last.type);
+          age.innerHTML = ago(n - 1 - last.to.i, tf) + (fresh ? '<span class="fresh">Taze</span>' : '');
         } else {
-          sig.innerHTML = '<span style="color:var(--muted)">Uyumsuzluk yok</span>';
+          sig.className = 'cell-sig none'; sig.textContent = 'Sessiz'; age.textContent = 'Uyumsuzluk yok';
         }
-        row.querySelector('.scan-rsi').innerHTML = 'RSI <b class="mono" style="color:' + (r >= 70 ? 'var(--bear)' : r <= 30 ? 'var(--bull)' : 'var(--text)') + '">' + fmtRsi(r) + '</b>';
+        cell.querySelector('.cell-rsi').textContent = 'RSI ' + fmtRsi(r);
+        var pin = cell.querySelector('.cell-bar i');
+        pin.style.left = (r == null ? 50 : r) + '%';
+        pin.style.background = r >= 70 ? 'var(--bear)' : r <= 30 ? 'var(--bull)' : '';
       }).catch(function () {
         if (seq !== scanSeq) return;
-        var row = box.querySelector('[data-tf="' + tf + '"]');
-        if (row) row.querySelector('.scan-sig').innerHTML = '<small>Veri alınamadı</small>';
+        var cell = box.querySelector('[data-tf="' + tf + '"]');
+        if (!cell) return;
+        cell.querySelector('.cell-sig').className = 'cell-sig none';
+        cell.querySelector('.cell-sig').textContent = 'Veri yok';
       });
     });
   }
@@ -313,8 +328,10 @@
     });
   }
   $('scanner').addEventListener('click', function (e) {
-    var row = e.target.closest('.scan-row');
-    if (row) selectTf(row.getAttribute('data-tf'));
+    var cell = e.target.closest('.cell');
+    if (!cell) return;
+    selectTf(cell.getAttribute('data-tf'));
+    $('grafik').scrollIntoView({ behavior: 'smooth' });
   });
   $('scanBtn').addEventListener('click', function () { runScanner(true); });
 
@@ -351,7 +368,8 @@
   function renderChips() {
     $('typeChips').innerHTML = TYPE_ORDER.map(function (k) {
       var t = TYPES[k];
-      return '<button class="chip' + (state.show[k] ? '' : ' off') + '" data-type="' + k + '" style="--c:' + t.color + '" title="' + esc(t.desc) + '"><span class="sw"></span>' + t.label + '</button>';
+      return '<button type="button" class="toggle' + (state.show[k] ? '' : ' off') + '" data-type="' + k + '" style="--c:' + t.color + '" title="' + esc(t.desc) + '" aria-pressed="' + !!state.show[k] + '">' +
+        '<span class="ln' + (t.hidden ? ' dash' : '') + '"></span>' + t.label + '</button>';
     }).join('');
   }
   $('typeChips').addEventListener('click', function (e) {
@@ -399,39 +417,42 @@
     reader.readAsText(f);
   });
 
-  // --- Eğitim kartları -----------------------------------------------------
+  // --- Rehber -------------------------------------------------------------
 
   // Basit şema: üstte fiyat, altta RSI; iki pivot arası çizgi
   var SKETCH = {
-    bull:  { price: [[20, 30], [45, 55], [70, 40], [95, 70], [120, 50], [150, 80]], pa: [45, 55], pb: [95, 70], rsi: [[20, 100], [45, 125], [70, 105], [95, 115], [120, 100], [150, 95]], ra: [45, 125], rb: [95, 115] },
-    bear:  { price: [[20, 80], [45, 40], [70, 60], [95, 25], [120, 50], [150, 30]], pa: [45, 40], pb: [95, 25], rsi: [[20, 130], [45, 95], [70, 115], [95, 105], [120, 118], [150, 122]], ra: [45, 95], rb: [95, 105] },
-    hbull: { price: [[20, 40], [45, 70], [70, 45], [95, 60], [120, 35], [150, 25]], pa: [45, 70], pb: [95, 60], rsi: [[20, 100], [45, 115], [70, 100], [95, 128], [120, 105], [150, 98]], ra: [45, 115], rb: [95, 128] },
-    hbear: { price: [[20, 60], [45, 30], [70, 55], [95, 42], [120, 65], [150, 75]], pa: [45, 30], pb: [95, 42], rsi: [[20, 125], [45, 110], [70, 122], [95, 96], [120, 115], [150, 125]], ra: [45, 110], rb: [95, 96] }
+    bull:  { price: [[10, 30], [45, 55], [70, 40], [105, 70], [130, 50], [170, 78]], pa: [45, 55], pb: [105, 70], rsi: [[10, 102], [45, 128], [70, 106], [105, 116], [130, 102], [170, 96]], ra: [45, 128], rb: [105, 116] },
+    bear:  { price: [[10, 80], [45, 40], [70, 60], [105, 25], [130, 50], [170, 32]], pa: [45, 40], pb: [105, 25], rsi: [[10, 132], [45, 96], [70, 116], [105, 106], [130, 120], [170, 124]], ra: [45, 96], rb: [105, 106] },
+    hbull: { price: [[10, 40], [45, 70], [70, 45], [105, 60], [130, 35], [170, 24]], pa: [45, 70], pb: [105, 60], rsi: [[10, 102], [45, 116], [70, 100], [105, 130], [130, 106], [170, 98]], ra: [45, 116], rb: [105, 130] },
+    hbear: { price: [[10, 60], [45, 30], [70, 55], [105, 42], [130, 66], [170, 76]], pa: [45, 30], pb: [105, 42], rsi: [[10, 126], [45, 110], [70, 122], [105, 96], [130, 116], [170, 126]], ra: [45, 110], rb: [105, 96] }
   };
-  var TAGS = { bull: 'Dönüş · Yükseliş', bear: 'Dönüş · Düşüş', hbull: 'Trend devamı · Yükseliş', hbear: 'Trend devamı · Düşüş' };
+  var TAGS = { bull: 'Dönüş — yükseliş', bear: 'Dönüş — düşüş', hbull: 'Devam — yükseliş', hbear: 'Devam — düşüş' };
+  var ROMAN = ['I', 'II', 'III', 'IV'];
   function sketch(k) {
     var s = SKETCH[k], c = TYPES[k].color, dash = TYPES[k].hidden ? ' stroke-dasharray="5 4"' : '';
     function pl(pts) { return pts.map(function (p) { return p.join(','); }).join(' '); }
-    return '<svg viewBox="0 0 170 140" role="img" aria-label="' + TYPES[k].label + ' uyumsuzluk şeması">' +
-      '<text x="6" y="14" fill="#8b97a8" font-size="9">Fiyat</text><text x="6" y="92" fill="#8b97a8" font-size="9">RSI</text>' +
-      '<line x1="0" y1="84" x2="170" y2="84" stroke="#222c3a"/>' +
-      '<polyline points="' + pl(s.price) + '" fill="none" stroke="#c0c7d1" stroke-width="1.6"/>' +
-      '<polyline points="' + pl(s.rsi) + '" fill="none" stroke="#8e99a8" stroke-width="1.4"/>' +
-      '<line x1="' + s.pa[0] + '" y1="' + s.pa[1] + '" x2="' + s.pb[0] + '" y2="' + s.pb[1] + '" stroke="' + c + '" stroke-width="2.4"' + dash + '/>' +
-      '<line x1="' + s.ra[0] + '" y1="' + s.ra[1] + '" x2="' + s.rb[0] + '" y2="' + s.rb[1] + '" stroke="' + c + '" stroke-width="2.4"' + dash + '/>' +
-      [s.pa, s.pb, s.ra, s.rb].map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3" fill="' + c + '"/>'; }).join('') +
+    return '<svg viewBox="0 0 180 142" role="img" aria-label="' + TYPES[k].label + ' uyumsuzluk şeması">' +
+      '<text x="0" y="10" fill="rgba(233,232,228,.4)" font-size="8" font-family="JetBrains Mono, monospace" letter-spacing="1.5">FİYAT</text>' +
+      '<text x="0" y="93" fill="rgba(233,232,228,.4)" font-size="8" font-family="JetBrains Mono, monospace" letter-spacing="1.5">RSI</text>' +
+      '<line x1="0" y1="84" x2="180" y2="84" stroke="rgba(233,232,228,.12)"/>' +
+      '<polyline points="' + pl(s.price) + '" fill="none" stroke="rgba(233,232,228,.8)" stroke-width="1.2" stroke-linejoin="round"/>' +
+      '<polyline points="' + pl(s.rsi) + '" fill="none" stroke="rgba(233,232,228,.5)" stroke-width="1.2" stroke-linejoin="round"/>' +
+      '<line x1="' + s.pa[0] + '" y1="' + s.pa[1] + '" x2="' + s.pb[0] + '" y2="' + s.pb[1] + '" stroke="' + c + '" stroke-width="2"' + dash + '/>' +
+      '<line x1="' + s.ra[0] + '" y1="' + s.ra[1] + '" x2="' + s.rb[0] + '" y2="' + s.rb[1] + '" stroke="' + c + '" stroke-width="2"' + dash + '/>' +
+      [s.pa, s.pb, s.ra, s.rb].map(function (p) { return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2.6" fill="#0b0b0c" stroke="' + c + '" stroke-width="1.5"/>'; }).join('') +
       '</svg>';
   }
-  $('learnCards').innerHTML = TYPE_ORDER.map(function (k) {
+  $('learnCards').innerHTML = TYPE_ORDER.map(function (k, idx) {
     var t = TYPES[k];
-    return '<div class="card" style="--c:' + t.color + '"><span class="tag">' + TAGS[k] + '</span><h3>' + t.label + ' uyumsuzluk</h3>' +
-      '<p>' + t.desc.replace(/ — (.)/, function (m, c) { return '.<br>' + c.toLocaleUpperCase('tr-TR'); }) + '.</p>' + sketch(k) + '</div>';
+    return '<article class="g' + (t.hidden ? ' dash' : '') + '" style="--c:' + t.color + '">' +
+      '<span class="g-roman">' + ROMAN[idx] + '.</span><h3>' + t.label + '</h3><span class="tag">' + TAGS[k] + '</span>' +
+      '<p>' + t.desc.replace(/ — (.)/, function (m, c) { return '. ' + c.toLocaleUpperCase('tr-TR'); }) + '.</p>' + sketch(k) + '</article>';
   }).join('');
 
   // --- Başlat --------------------------------------------------------------
 
   $('yr').textContent = new Date().getFullYear();
-  syncOptInputs(); renderTfSeg(); renderUnitSeg(); renderChips(); renderLegend();
+  syncOptInputs(); renderTfSeg(); renderUnitSeg(); renderChips();
   load().then(function () { runScanner(false); });
 
   setInterval(function () { if (state.mode !== 'csv' && !document.hidden) load(); }, REFRESH_MS);
