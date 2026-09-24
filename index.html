@@ -5,48 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RC. Gümüş RSI Uyumsuzluk</title>
   <meta name="description" content="Rues Community (RC) — Gümüş için RSI uyumsuzluk durumu: pozitif, negatif, gizli pozitif, gizli negatif.">
-  <meta name="theme-color" content="#0c0c0d">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230c0c0d'/%3E%3Ctext x='32' y='42' font-family='Arial' font-weight='700' font-size='26' text-anchor='middle' fill='%23e8e8e6'%3ERC%3C/text%3E%3C/svg%3E">
+  <meta name="theme-color" content="#0f100d">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f100d'/%3E%3Crect x='10' y='18' width='44' height='28' rx='14' fill='%23d9dde3' transform='rotate(-4 32 32)'/%3E%3Ctext x='32' y='40' font-family='Arial' font-weight='800' font-size='20' text-anchor='middle' fill='%230f100d'%3ERC%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Geist:wght@400..600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="top">
     <div class="wrap top-in">
-      <div class="brand"><b>RC.</b> <span>Rues Community</span></div>
-      <div class="ticker"><span class="muted">Gümüş</span> <b id="price">—</b> <span id="change"></span></div>
+      <a class="logo" href="#" aria-label="RC — Rues Community"><span>RC</span> Rues Community</a>
+      <div class="ticker" aria-label="Gümüş fiyatı">
+        <span class="k">XAG/USD</span> <b id="price">—</b> <span id="change"></span>
+      </div>
     </div>
   </header>
 
-  <main class="wrap">
-    <h1 class="title">Gümüş RSI uyumsuzluk durumu</h1>
-    <p class="updated" id="updated">Yükleniyor…</p>
-
-    <!-- Durum kartları: Günlük önce -->
-    <section class="status" id="status" aria-live="polite"></section>
-
-    <!-- Bildirim -->
-    <section class="alerts">
-      <p>Uyumsuzluk oluşmaya başladığında ve onaylandığında haber al.</p>
-      <div class="alert-actions">
-        <a class="btn primary" id="tgBtn" href="#" target="_blank" rel="noopener" hidden>Telegram kanalına katıl</a>
-        <button class="btn" id="notifyBtn" type="button">Tarayıcı bildirimi aç</button>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="live" id="live"></span><span id="updated">Yükleniyor…</span></p>
+        <h1>Gümüşte <span class="hl">uyumsuzluk</span> var mı?</h1>
+        <p class="lead">RSI ile fiyatın ayrıştığı anı, günlükten saatliğe tek bakışta gör. Oluşmaya başladığında haber ver, onaylandığında haber ver.</p>
+        <div class="hero-actions">
+          <a class="btn btn-silver" id="tgBtn" href="#" target="_blank" rel="noopener" hidden>Telegram kanalına katıl</a>
+          <button class="btn btn-ghost" id="notifyBtn" type="button">Tarayıcı bildirimi aç</button>
+        </div>
+        <p class="note" id="notifyNote"></p>
       </div>
-      <p class="note" id="notifyNote"></p>
-    </section>
+      <div class="hero-receipt" id="receipt" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <main class="wrap">
+    <!-- Diğer periyotlar -->
+    <section class="others" id="others" aria-live="polite"></section>
 
     <!-- Grafik -->
     <section class="block">
       <div class="block-h">
-        <h2>Grafik · <span id="chartTf">Günlük</span></h2>
+        <h2>Grafik <span class="soft">· <span id="chartTf">Günlük</span></span></h2>
         <div class="tabs" id="tabs"></div>
       </div>
       <div class="info" id="chartInfo"></div>
       <div class="chart">
+        <span class="pane-tag price-tag">Fiyat · $</span>
         <div id="priceChart" class="chart-p"></div>
-        <div class="rsi-label">RSI 14</div>
+        <span class="pane-tag rsi-tag">RSI · 0–100</span>
         <div id="rsiChart" class="chart-r"></div>
       </div>
       <div class="legend">
@@ -54,17 +61,17 @@
         <span><i style="--c:var(--bear)"></i>Negatif</span>
         <span><i class="dash" style="--c:var(--hbull)"></i>Gizli pozitif</span>
         <span><i class="dash" style="--c:var(--hbear)"></i>Gizli negatif</span>
-        <span><i class="dot" style="--c:var(--text-2)"></i>Noktalı = oluşuyor</span>
+        <span><i class="dot" style="--c:var(--muted)"></i>Noktalı = oluşuyor</span>
       </div>
-      <p class="note">Çizgiler iki dip (veya iki tepe) arasını birleştirir: üstte fiyat, altta RSI. Veri: Binance XAGUSDT perpetual · <a id="tvLink" href="#" target="_blank" rel="noopener">TradingView'de aç →</a></p>
+      <p class="note">Çizgi iki dibi ya da iki tepeyi birleştirir: üstte fiyat ($), altta RSI (0–100). Veri: Binance XAGUSDT perpetual · <a id="tvLink" href="#" target="_blank" rel="noopener">TradingView'de aç →</a></p>
     </section>
 
     <!-- Liste -->
     <section class="block">
-      <div class="block-h"><h2>Son uyumsuzluklar · <span id="listTf">Günlük</span></h2></div>
+      <div class="block-h"><h2>Son uyumsuzluklar <span class="soft">· <span id="listTf">Günlük</span></span></h2></div>
       <div class="table-wrap">
         <table class="list">
-          <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat</th><th>RSI</th></tr></thead>
+          <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat ($)</th><th class="th-rsi">RSI</th></tr></thead>
           <tbody id="rows"><tr><td colspan="4" class="empty">Yükleniyor…</td></tr></tbody>
         </table>
       </div>
@@ -73,19 +80,22 @@
     <!-- Kısa rehber -->
     <section class="block">
       <div class="block-h"><h2>Ne anlama geliyor?</h2></div>
-      <ul class="guide">
-        <li><i style="--c:var(--bull)"></i><b>Pozitif</b> Fiyat daha düşük dip, RSI daha yüksek dip. Düşüş zayıflıyor, yukarı dönüş olabilir.</li>
-        <li><i style="--c:var(--bear)"></i><b>Negatif</b> Fiyat daha yüksek tepe, RSI daha düşük tepe. Yükseliş zayıflıyor, aşağı dönüş olabilir.</li>
-        <li><i style="--c:var(--hbull)"></i><b>Gizli pozitif</b> Fiyat daha yüksek dip, RSI daha düşük dip. Yükseliş trendi devam edebilir.</li>
-        <li><i style="--c:var(--hbear)"></i><b>Gizli negatif</b> Fiyat daha düşük tepe, RSI daha yüksek tepe. Düşüş trendi devam edebilir.</li>
-      </ul>
-      <p class="note"><b>Oluşuyor:</b> ikinci dip/tepe görüldü ama henüz onaylanmadı (5 mum beklenir); fiyat yeni dip/tepe yaparsa iptal olabilir. <b>Onaylandı:</b> uyumsuzluk kesinleşti.</p>
+      <div class="guide">
+        <div class="g" style="--c:var(--bull)"><span class="g-tag">Dönüş ↑</span><b>Pozitif</b><p>Fiyat daha düşük dip, RSI daha yüksek dip. Düşüş zayıflıyor.</p></div>
+        <div class="g" style="--c:var(--bear)"><span class="g-tag">Dönüş ↓</span><b>Negatif</b><p>Fiyat daha yüksek tepe, RSI daha düşük tepe. Yükseliş zayıflıyor.</p></div>
+        <div class="g" style="--c:var(--hbull)"><span class="g-tag">Devam ↑</span><b>Gizli pozitif</b><p>Fiyat daha yüksek dip, RSI daha düşük dip. Yükseliş sürebilir.</p></div>
+        <div class="g" style="--c:var(--hbear)"><span class="g-tag">Devam ↓</span><b>Gizli negatif</b><p>Fiyat daha düşük tepe, RSI daha yüksek tepe. Düşüş sürebilir.</p></div>
+      </div>
+      <p class="note"><b>Oluşuyor:</b> ikinci dip/tepe görüldü, onay için 5 mum beklenir; fiyat yeni dip/tepe yaparsa iptal olabilir. <b>Onaylandı:</b> uyumsuzluk kesinleşti.</p>
     </section>
-
-    <p class="disclaimer">Eğitim ve bilgilendirme amaçlıdır, yatırım tavsiyesi değildir. RSI 14 · pivot 5/5 · veri: XAGUSDT perpetual.</p>
   </main>
 
-  <footer class="foot"><div class="wrap">© <span id="yr"></span> RC · Rues Community</div></footer>
+  <footer class="foot">
+    <div class="wrap foot-in">
+      <a class="logo" href="#"><span>RC</span> Rues Community</a>
+      <p>Eğitim ve bilgilendirme amaçlıdır, yatırım tavsiyesi değildir. RSI 14 · pivot 5/5 · © <span id="yr"></span></p>
+    </div>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="js/config.js"></script>
