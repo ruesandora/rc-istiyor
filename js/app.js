@@ -48,7 +48,7 @@
     return d >= 1 ? d + ' gün önce' : h + ' saat önce';
   }
   function label(type) { return TYPES[type].label.replace('Gizli Pozitif', 'Gizli pozitif').replace('Gizli Negatif', 'Gizli negatif'); }
-  function typeHtml(type) { return '<span class="type t-' + type + '">' + label(type) + '</span>'; }
+  function typeHtml(type) { return '<span class="type t-' + type + (TYPES[type].hidden ? ' hid' : '') + '">' + label(type) + '</span>'; }
   function pair(a, b, f) { return f(a) + '<span class="arrow">→</span>' + f(b); }
 
   // --- Veri ------------------------------------------------------------------
@@ -142,7 +142,7 @@
         '<div class="c-row"><span class="l">Son</span>' + (e ? label(e.type) + ' · ' + date(e.to.time, tf) : 'henüz yok') + '</div></button>';
     }
     var t = e.type;
-    return '<button class="' + cls + ' t-' + t + '" data-tf="' + tf + '">' + head(rsiChip(r.rsi)) +
+    return '<button class="' + cls + ' t-' + t + (TYPES[t].hidden ? ' hid' : '') + '" data-tf="' + tf + '">' + head(rsiChip(r.rsi)) +
       '<div style="margin-top:12px">' + stateTag(st, r, tf) + '</div>' +
       '<span class="c-head">' + label(t) + (st.kind === 'pot' ? ' oluşuyor' : '') + '</span>' +
       '<div class="c-row"><span class="l">Fiyat</span>' + money(e.from.price) + ' → ' + money(e.to.price) + '</div>' +
@@ -174,24 +174,50 @@
     notifyCheck();
   }
 
+  var HORIZON = 10;   // sonuç, onaydan kaç mum sonra ölçülür
+
+  /** Onay mumunun kapanışı → 10 mum sonraki kapanış. Pozitifte yükseliş, negatifte düşüş = çalıştı. */
+  function outcome(e, r) {
+    var c = r.closed, i = e.confirmIndex, base = c[i] && c[i].close;
+    if (!base) return null;
+    var up = TYPES[e.type].side === 'low';
+    var j = Math.min(i + HORIZON, c.length - 1), ch = (c[j].close - base) / base * 100;
+    return { done: i + HORIZON <= c.length - 1, bars: j - i, ch: ch, ok: up ? ch > 0 : ch < 0 };
+  }
+  function pct(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
+  function resultHtml(e, r) {
+    if (e.potential) return '<span class="res wait">Oluşuyor</span>';
+    var o = outcome(e, r);
+    if (!o) return '';
+    if (!o.done) return '<span class="res wait">Bekleniyor ' + o.bars + '/' + HORIZON + ' <small>şimdilik ' + pct(o.ch) + '</small></span>';
+    return o.ok ? '<span class="res ok">✓ Çalıştı <small>' + pct(o.ch) + '</small></span>'
+                : '<span class="res no">✗ Çalışmadı <small>' + pct(o.ch) + '</small></span>';
+  }
+
   function renderList() {
     var r = results[selected];
     $('listTf').textContent = TF[selected].label;
-    if (!r || r.error) { $('rows').innerHTML = '<tr><td colspan="4" class="empty">' + (r ? 'Veri alınamadı.' : 'Yükleniyor…') + '</td></tr>'; return; }
-    var items = r.pending.concat(r.divs.slice(-8).reverse());
-    if (!items.length) { $('rows').innerHTML = '<tr><td colspan="4" class="empty">Uyumsuzluk bulunamadı.</td></tr>'; return; }
+    $('listScore').textContent = '';
+    if (!r || r.error) { $('rows').innerHTML = '<tr><td colspan="5" class="empty">' + (r ? 'Veri alınamadı.' : 'Yükleniyor…') + '</td></tr>'; return; }
+    var last = r.divs.slice(-8).reverse(), items = r.pending.concat(last);
+    if (!items.length) { $('rows').innerHTML = '<tr><td colspan="5" class="empty">Uyumsuzluk bulunamadı.</td></tr>'; return; }
+    var done = last.map(function (e) { return outcome(e, r); }).filter(function (o) { return o && o.done; });
+    var wins = done.filter(function (o) { return o.ok; }).length;
+    if (done.length) $('listScore').innerHTML = 'Son ' + done.length + ' sinyal: <b>' + wins + ' çalıştı</b>, ' + (done.length - wins) + ' çalışmadı';
     $('rows').innerHTML = items.map(function (e) {
       return '<tr><td>' + typeHtml(e.type) + (e.potential ? '<span class="tag">Oluşuyor</span>' : '') + '</td>' +
         '<td>' + date(e.to.time, selected) + '</td>' +
         '<td>' + pair(e.from.price, e.to.price, money) + '</td>' +
-        '<td class="rsi">' + pair(e.from.rsi, e.to.rsi, rsiN) + '</td></tr>';
+        '<td class="rsi">' + pair(e.from.rsi, e.to.rsi, rsiN) + '</td>' +
+        '<td>' + resultHtml(e, r) + '</td></tr>';
     }).join('');
   }
 
   // --- Grafik (TradingView Lightweight Charts) -----------------------------
 
   var TZ = 3 * 3600;   // grafikte Türkiye saati
-  var HEX = { bull: '#5ee39a', bear: '#ff7a6b', hbull: '#6cb4ff', hbear: '#ffc24b' };
+  // İki renk: pozitif yeşil, negatif kırmızı (gizliler kesikli çizgiyle ayrılır)
+  var HEX = { bull: '#5ee39a', bear: '#ff7a6b', hbull: '#5ee39a', hbear: '#ff7a6b' };
   var LWC = window.LightweightCharts, pc = null, rc = null, candleS = null, rsiS = null, lines = [];
 
   function initCharts() {

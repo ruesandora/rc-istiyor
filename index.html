@@ -59,8 +59,8 @@
       <div class="legend">
         <span><i style="--c:var(--bull)"></i>Pozitif</span>
         <span><i style="--c:var(--bear)"></i>Negatif</span>
-        <span><i class="dash" style="--c:var(--hbull)"></i>Gizli pozitif</span>
-        <span><i class="dash" style="--c:var(--hbear)"></i>Gizli negatif</span>
+        <span><i class="dash" style="--c:var(--bull)"></i>Gizli pozitif</span>
+        <span><i class="dash" style="--c:var(--bear)"></i>Gizli negatif</span>
         <span><i class="dot" style="--c:var(--muted)"></i>Noktalı = oluşuyor</span>
       </div>
       <p class="note">Çizgi iki dibi ya da iki tepeyi birleştirir: üstte fiyat ($), altta RSI (0–100). <b>Veri:</b> <span class="src">Binance · XAGUSDT perpetual</span>. <b>Grafik çizimi:</b> <a href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a> kütüphanesi. · <a id="tvLink" href="#" target="_blank" rel="noopener">TradingView'de aç →</a></p>
@@ -68,13 +68,14 @@
 
     <!-- Liste -->
     <section class="block">
-      <div class="block-h"><h2>Son uyumsuzluklar <span class="soft">· <span id="listTf">Günlük</span></span></h2></div>
+      <div class="block-h"><h2>Son uyumsuzluklar <span class="soft">· <span id="listTf">Günlük</span></span></h2><span class="score" id="listScore"></span></div>
       <div class="table-wrap">
         <table class="list">
-          <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat ($)</th><th class="th-rsi">RSI</th></tr></thead>
-          <tbody id="rows"><tr><td colspan="4" class="empty">Yükleniyor…</td></tr></tbody>
+          <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat ($)</th><th class="th-rsi">RSI</th><th>Sonuç <span class="soft">(10 mum sonra)</span></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="5" class="empty">Yükleniyor…</td></tr></tbody>
         </table>
       </div>
+      <p class="note"><b>Sonuç nasıl ölçülüyor?</b> Uyumsuzluğun onaylandığı mumun kapanışı ile 10 mum sonraki kapanış karşılaştırılır. Pozitifte fiyat yükseldiyse, negatifte düştüyse <b>çalıştı</b> sayılır. 10 mum dolmadıysa <b>bekleniyor</b> yazar ve o ana kadarki değişim gösterilir.</p>
     </section>
 
     <!-- Kısa rehber -->
@@ -83,8 +84,8 @@
       <div class="guide">
         <div class="g" style="--c:var(--bull)"><span class="g-tag">Dönüş ↑</span><b>Pozitif</b><p>Fiyat daha düşük dip, RSI daha yüksek dip. Düşüş zayıflıyor.</p></div>
         <div class="g" style="--c:var(--bear)"><span class="g-tag">Dönüş ↓</span><b>Negatif</b><p>Fiyat daha yüksek tepe, RSI daha düşük tepe. Yükseliş zayıflıyor.</p></div>
-        <div class="g" style="--c:var(--hbull)"><span class="g-tag">Devam ↑</span><b>Gizli pozitif</b><p>Fiyat daha yüksek dip, RSI daha düşük dip. Yükseliş sürebilir.</p></div>
-        <div class="g" style="--c:var(--hbear)"><span class="g-tag">Devam ↓</span><b>Gizli negatif</b><p>Fiyat daha düşük tepe, RSI daha yüksek tepe. Düşüş sürebilir.</p></div>
+        <div class="g hid" style="--c:var(--bull)"><span class="g-tag">Devam ↑</span><b>Gizli pozitif</b><p>Fiyat daha yüksek dip, RSI daha düşük dip. Yükseliş sürebilir.</p></div>
+        <div class="g hid" style="--c:var(--bear)"><span class="g-tag">Devam ↓</span><b>Gizli negatif</b><p>Fiyat daha düşük tepe, RSI daha yüksek tepe. Düşüş sürebilir.</p></div>
       </div>
       <p class="note"><b>Oluşuyor:</b> ikinci dip/tepe görüldü, onay için 5 mum beklenir; fiyat yeni dip/tepe yaparsa iptal olabilir. <b>Onaylandı:</b> uyumsuzluk kesinleşti.</p>
     </section>
