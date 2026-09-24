@@ -154,7 +154,7 @@
       layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9a9a97', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12 },
       grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
       rightPriceScale: { borderVisible: false, minimumWidth: 64 },
-      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4 },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 14 },
       crosshair: { mode: 0 },
       localization: { locale: 'tr-TR', priceFormatter: function (v) { return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } }
     };
@@ -208,7 +208,7 @@
     candleS.setMarkers(markers);
     if (fit) {
       var n = c.length;
-      pc.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 150), to: n + 4 });
+      pc.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 150), to: n + 14 });
     }
   }
 
