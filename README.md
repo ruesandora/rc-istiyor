@@ -24,7 +24,7 @@ GitHub Actions (her 10 dk) ──► Vercel /api/check (Frankfurt)
                                   └► Telegram kanalı / Discord
 ```
 
-Site (`index.html`) aynı motoru tarayıcıda çalıştırır; sayfa açıkken tarayıcı bildirimi de verebilir.
+Site (`index.html`) aynı motoru tarayıcıda çalıştırır: en üstte Günlük, sonra 4 saat, 1 saat ve haftalık uyumsuzluk durumu görünür. Grafik TradingView'den gömülüdür (`BINANCE:XAGUSDT.P`, `js/config.js` içinden değiştirilebilir). Sayfa açıkken tarayıcı bildirimi de verebilir.
 
 ## Vercel'e bağlama (tek seferlik)
 
@@ -48,8 +48,7 @@ Site (`index.html`) aynı motoru tarayıcıda çalıştırır; sayfa açıkken t
 | `CRON_SECRET` | uzun rastgele metin | /api/check'i yalnızca zamanlayıcı çağırabilsin |
 | `SITE_URL` | `https://rc-gumus.vercel.app` | Mesajdaki "Grafiği aç" linki |
 | `DISCORD_WEBHOOK_URL` | *(isteğe bağlı)* | Discord kanalına da gönderir |
-| `ALERT_TIMEFRAMES` | `1h,4h,1d,1w` | Taranacak periyotlar (`15m` de eklenebilir) |
-| `ALERT_UNITS` | `usd` | `usd`, `try` veya `usd,try` |
+| `ALERT_TIMEFRAMES` | `1d,4h,1h,1w` | Taranacak periyotlar |
 | `ALERT_POTENTIAL` | `on` | `off` → yalnızca onaylananlar |
 
    Değişkenleri ekledikten sonra **Redeploy**.
@@ -72,8 +71,9 @@ npx vercel dev                  # API dahil yerelde çalıştır
 ## Dosyalar
 
 - `js/divergence.js`: RSI (Wilder), pivot, onaylı ve oluşmakta olan uyumsuzluk motoru (tarayıcı + Node)
-- `js/data.js`: veri kaynakları (Binance → Bybit → OKX), gram/₺ dönüşümü, CSV okuyucu, demo veri
-- `js/app.js`: arayüz, grafikler ([Lightweight Charts](https://github.com/tradingview/lightweight-charts)), tarayıcı bildirimleri
+- `js/data.js`: veri kaynakları (Binance → Bybit → OKX)
+- `js/app.js`: durum kartları, TradingView grafiği, liste, tarayıcı bildirimleri
+- `js/config.js`: Telegram linki ve grafik sembolü
 - `lib/alerts.js`: bildirim mantığı, mesaj biçimi, Telegram/Discord, Redis
 - `api/check.js`: Vercel fonksiyonu
 
