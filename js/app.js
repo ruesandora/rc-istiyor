@@ -196,7 +196,7 @@
     if (!LWC || pc) return !!pc;
     var base = {
       autoSize: true,
-      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9d9c92', fontFamily: 'Geist, system-ui, sans-serif', fontSize: 12 },
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9d9c92', fontFamily: 'Geist, system-ui, sans-serif', fontSize: 12, attributionLogo: false },
       grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
       rightPriceScale: { borderVisible: false, minimumWidth: 64 },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 14 },
