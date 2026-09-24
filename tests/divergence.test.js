@@ -104,12 +104,19 @@ test('Olası uyumsuzluk: dip B henüz onaylanmadan tespit edilir, onaylanınca n
   assert.ok(!D.findPotential(candles(full)).some(x => x.to.i === 47));
 });
 
-test('Olası uyumsuzluk: fiyat yeni dip yapmaya devam ederse aday kayar', () => {
+test('Olası uyumsuzluk: dipten sonra en az 2 mum ve RSI dönüşü gerekir', () => {
   const full = twoLows(26, 25.5, 33);
-  const c = candles(full.slice(0, 48));            // B tam son mumda
-  const p = D.findPotential(c).find(x => x.type === 'bull');
-  assert.ok(p);
-  assert.strictEqual(p.barsLeft, 5);
+  assert.ok(!D.findPotential(candles(full.slice(0, 48))).some(x => x.type === 'bull'), 'dip son mumda: erken');
+  assert.ok(!D.findPotential(candles(full.slice(0, 49))).some(x => x.type === 'bull'), 'dipten sonra 1 mum: erken');
+  assert.ok(D.findPotential(candles(full.slice(0, 50))).some(x => x.type === 'bull'), '2 mum: oluşuyor');
+});
+
+test('Kapanmış mumlar: kaynağın son (oluşan) mumu her zaman atılır', () => {
+  const API = require('../js/data.js');
+  const c = [0, 1, 2, 3].map(i => ({ time: i * 3600, open: 1, high: 1, low: 1, close: 1 }));
+  assert.strictEqual(API.closedOnly(c, '1h', 10 * 3600).length, 3);   // saat geçmiş olsa bile son mum atılır
+  assert.strictEqual(API.closedOnly(c, '1h', 3 * 3600).length, 3);
+  assert.strictEqual(API.closedOnly(c, '1h', 2.5 * 3600).length, 2);  // saate göre de kapanmamış olan atılır
 });
 
 test('Aralık filtresi: maxRange dışındaki pivotlar eşleşmez', () => {

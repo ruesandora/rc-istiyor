@@ -65,7 +65,7 @@
   function clean(candles) {
     var seen = {};
     return candles.filter(function (c) {
-      var ok = isFinite(c.time) && isFinite(c.close) && !seen[c.time];
+      var ok = isFinite(c.time) && isFinite(c.open) && isFinite(c.high) && isFinite(c.low) && isFinite(c.close) && !seen[c.time];
       seen[c.time] = true;
       return ok;
     }).sort(function (a, b) { return a.time - b.time; });
@@ -96,8 +96,12 @@
   }
 
   /** Yalnızca kapanmış mumlar. */
+  /**
+   * Yalnızca kapanmış mumlar. Kaynağın döndürdüğü son mum her zaman o an oluşan mumdur ve atılır
+   * (önbellekteki veri birkaç dakika eski olabileceğinden yalnızca saate bakmak yetmez).
+   */
   function closedOnly(candles, tf, nowSec) {
-    var step = TIMEFRAMES[tf].seconds, n = candles.length;
+    var step = TIMEFRAMES[tf].seconds, n = candles.length - 1;
     while (n > 0 && candles[n - 1].time + step > nowSec) n--;
     return candles.slice(0, n);
   }
