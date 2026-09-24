@@ -43,7 +43,8 @@ Site (`index.html`) aynı motoru tarayıcıda çalıştırır: en üstte Günlü
 
 | Değişken | Örnek | Açıklama |
 |---|---|---|
-| `TWELVEDATA_API_KEY` | *(isteğe bağlı)* | Spot XAG/USD verisi ([twelvedata.com](https://twelvedata.com/register)). Yoksa Binance kullanılır |
+| `OANDA_API_KEY` | *(önerilen)* | Spot XAG/USD, uzun geçmiş. Ücretsiz demo hesabın API anahtarı ([oanda.com/demo-account](https://www.oanda.com/demo-account/)). Canlı hesap için `OANDA_ENV=live` |
+| `TWELVEDATA_API_KEY` | *(isteğe bağlı)* | Not: XAG/USD ücretsiz planda yok. Anahtar yoksa ya da hata verirse Binance kullanılır |
 | `TELEGRAM_BOT_TOKEN` | `123456:ABC…` | BotFather'dan |
 | `TELEGRAM_CHAT_ID` | `@rcgumus` | Kanal kullanıcı adı veya `-100…` ID |
 | `CRON_SECRET` | uzun rastgele metin | /api/check'i yalnızca zamanlayıcı çağırabilsin |
