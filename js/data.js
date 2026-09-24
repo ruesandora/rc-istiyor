@@ -100,7 +100,7 @@
       var p = order[i++];
       return p.load(tf).then(function (c) {
         c = clean(c);
-        if (c.length < 50) throw new Error('yetersiz veri (' + c.length + ')');
+        if (c.length < 30) throw new Error('yetersiz veri (' + c.length + ')');
         preferred = p.id;
         return { candles: c, source: p.name };
       }).catch(function (e) {
@@ -139,7 +139,7 @@
           out.push({ time: c.time, open: c.open * (r.o / OZ_TO_GRAM), high: c.high * k, low: c.low * k, close: c.close * k });
         });
         out.forEach(function (c) { c.high = Math.max(c.high, c.open, c.close); c.low = Math.min(c.low, c.open, c.close); });
-        if (out.length < 50) throw new Error('USD/TRY verisi eşleşmedi');
+        if (out.length < 30) throw new Error('USD/TRY verisi eşleşmedi');
         return { candles: out, source: res.source + ' + Binance USDTTRY', unit: 'try' };
       });
     });
