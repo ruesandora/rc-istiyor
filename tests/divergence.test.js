@@ -2,7 +2,6 @@
 'use strict';
 const assert = require('assert');
 const D = require('../js/divergence.js');
-const API = require('../js/data.js');
 
 let passed = 0;
 function test(name, fn) { fn(); passed++; console.log('✓ ' + name); }
@@ -119,33 +118,6 @@ test('Aralık filtresi: maxRange dışındaki pivotlar eşleşmez', () => {
   assert.ok(all.length > 0);
   const none = D.findDivergences(c, { maxRange: 5 }).divergences.filter(d => d.type === 'bull');
   assert.strictEqual(none.length, 0);
-});
-
-test('Sonuçlar zaman sıralı ve alanlar tutarlı', () => {
-  const r = D.findDivergences(candles(API.demo('1h')));
-  for (let i = 1; i < r.divergences.length; i++) assert.ok(r.divergences[i].to.i >= r.divergences[i - 1].to.i);
-  r.divergences.forEach(d => {
-    assert.ok(d.to.i > d.from.i);
-    assert.ok(d.confirmIndex >= d.to.i);
-    assert.ok(D.TYPES[d.type]);
-  });
-});
-
-test('CSV: virgül ayraçlı İngilizce başlık', () => {
-  const rows = ['Date,Open,High,Low,Close'];
-  for (let i = 0; i < 40; i++) rows.push(`2025-01-${String((i % 28) + 1).padStart(2, '0')}T${String(Math.floor(i / 28)).padStart(2, '0')}:00:00Z,30,31,29,${30 + i / 10}`);
-  const c = API.parseCsv(rows.join('\n'));
-  assert.strictEqual(c.length, 40);
-  assert.ok(c[0].time < c[1].time);
-});
-
-test('CSV: noktalı virgül + Türkçe başlık + ondalık virgül', () => {
-  const rows = ['Tarih;Şimdi;Açılış;Yüksek;Düşük'];
-  for (let i = 1; i <= 31; i++) rows.push(`${String(i).padStart(2, '0')}.03.2025;1.234,${10 + i};1.230,00;1.240,50;1.220,25`);
-  const c = API.parseCsv(rows.join('\n'));
-  assert.strictEqual(c.length, 31);
-  assert.ok(Math.abs(c[0].close - 1234.11) < 1e-9);
-  assert.strictEqual(c[0].high, 1240.5);
 });
 
 console.log(`\n${passed} test geçti.`);

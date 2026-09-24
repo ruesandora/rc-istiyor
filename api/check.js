@@ -33,8 +33,7 @@ async function run(req, env) {
     return [200, { test: true, result: await A.broadcast(text, env) }];
   }
 
-  const tfs = list(env.ALERT_TIMEFRAMES, '1h,4h,1d,1w').filter(tf => API.TIMEFRAMES[tf]);
-  const units = list(env.ALERT_UNITS, 'usd').filter(u => u === 'usd' || u === 'try');
+  const tfs = list(env.ALERT_TIMEFRAMES, '1d,4h,1h,1w').filter(tf => API.TIMEFRAMES[tf]);
   const types = list(env.ALERT_TYPES, 'bull,bear,hbull,hbear');
   const withPotential = (env.ALERT_POTENTIAL || 'on') !== 'off';
   const nowSec = Math.floor(Date.now() / 1000);
@@ -45,12 +44,12 @@ async function run(req, env) {
 
   const report = { dry, at: new Date().toISOString(), timeframes: [], sent: 0, errors: [] };
 
-  for (const unit of units) {
+  {
     for (const tf of tfs) {
-      const row = { tf, unit };
+      const row = { tf };
       report.timeframes.push(row);
       let data;
-      try { data = await API.loadSilver(tf, unit); } catch (e) { row.error = e.message; report.errors.push(`${unit}/${tf}: ${e.message}`); continue; }
+      try { data = await API.loadSilver(tf); } catch (e) { row.error = e.message; report.errors.push(`${tf}: ${e.message}`); continue; }
       row.source = data.source;
       const ev = A.evaluate(data.candles, tf, {}, nowSec);
       row.lastClose = ev.closed.length ? ev.closed[ev.closed.length - 1].close : null;
@@ -58,14 +57,14 @@ async function run(req, env) {
       const events = ev.confirmed.concat(withPotential ? ev.potential : []).filter(x => types.includes(x.type));
       row.events = [];
       for (const e of events) {
-        const key = A.dedupeKey(e, tf, unit);
+        const key = A.dedupeKey(e, tf);
         const item = { kind: e.kind, type: e.type, from: e.from, to: e.to, barsLeft: e.barsLeft, key };
         row.events.push(item);
-        if (dry) { item.message = A.formatMessage(e, tf, unit, env.SITE_URL); continue; }
+        if (dry) { item.message = A.formatMessage(e, tf, env.SITE_URL); continue; }
         let fresh;
         try { fresh = await kv.claim(key, TTL); } catch (err) { report.errors.push(err.message); continue; }
         if (!fresh) { item.status = 'zaten gönderildi'; continue; }
-        const result = await A.broadcast(A.formatMessage(e, tf, unit, env.SITE_URL), env);
+        const result = await A.broadcast(A.formatMessage(e, tf, env.SITE_URL), env);
         item.status = result;
         const failed = Object.values(result).some(r => r.error) && !Object.values(result).some(r => r.ok);
         if (failed) { await kv.release(key); report.errors.push(JSON.stringify(result)); } else report.sent++;

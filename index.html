@@ -4,168 +4,77 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RC. Gümüş RSI Uyumsuzluk</title>
-  <meta name="description" content="Rues Community (RC) — Gümüş (XAG) için pozitif, negatif, gizli pozitif ve gizli negatif RSI uyumsuzluk tarayıcısı.">
-  <meta name="theme-color" content="#0b0b0c">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230b0b0c'/%3E%3Ctext x='30' y='44' font-family='Georgia,serif' font-size='32' text-anchor='middle' fill='%23d9d9d6'%3ERC%3C/text%3E%3Ccircle cx='54' cy='42' r='3' fill='%23d9d9d6'/%3E%3C/svg%3E">
+  <meta name="description" content="Rues Community (RC) — Gümüş için RSI uyumsuzluk durumu: pozitif, negatif, gizli pozitif, gizli negatif.">
+  <meta name="theme-color" content="#0c0c0d">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230c0c0d'/%3E%3Ctext x='32' y='42' font-family='Arial' font-weight='700' font-size='26' text-anchor='middle' fill='%23e8e8e6'%3ERC%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="grain" aria-hidden="true"></div>
-
   <header class="top">
     <div class="wrap top-in">
-      <a class="mark" href="#" aria-label="RC — Rues Community">
-        <span class="mark-rc">RC<i>.</i></span>
-        <span class="mark-sub">Rues<br>Community</span>
-      </a>
-      <nav class="top-nav" aria-label="Bölümler">
-        <a href="#grafik">Grafik</a>
-        <a href="#matris">Periyotlar</a>
-        <a href="#kayit">Kayıt</a>
-        <a href="#rehber">Rehber</a>
-        <a href="#bildirim">Bildirim</a>
-      </nav>
-      <div class="live" id="live"><span class="dot"></span><span id="liveText">Bağlanıyor</span></div>
+      <div class="brand"><b>RC.</b> <span>Rues Community</span></div>
+      <div class="ticker"><span class="muted">Gümüş</span> <b id="price">—</b> <span id="change"></span></div>
     </div>
   </header>
 
-  <main>
-    <!-- Hero -->
-    <section class="hero wrap">
-      <div class="hero-left">
-        <div class="element" aria-hidden="true">
-          <span class="el-n">47</span>
-          <span class="el-s">Ag</span>
-          <span class="el-w">107.868</span>
-        </div>
-        <div>
-          <p class="eyebrow">Gümüş · <span id="unitLabel">XAG/USD — ons</span></p>
-          <h1 class="big-price"><span id="cur">$</span><span id="price">—</span></h1>
-          <p class="change mono" id="change">&nbsp;</p>
-        </div>
-      </div>
+  <main class="wrap">
+    <h1 class="title">Gümüş RSI uyumsuzluk durumu</h1>
+    <p class="updated" id="updated">Yükleniyor…</p>
 
-      <div class="hero-right">
-        <div class="metric">
-          <p class="eyebrow">RSI <span id="rsiPeriodLabel">14</span> · <span id="tfLabel">4 saat</span></p>
-          <div class="metric-row">
-            <span class="metric-v" id="rsiNow">—</span>
-            <span class="metric-note" id="rsiZone">&nbsp;</span>
-          </div>
-          <div class="gauge" aria-hidden="true">
-            <span class="gz os"></span><span class="gz ob"></span>
-            <span class="gauge-pin" id="gaugePin"></span>
-            <span class="gl" style="left:30%">30</span><span class="gl" style="left:50%">50</span><span class="gl" style="left:70%">70</span>
-          </div>
-        </div>
-        <div class="metric">
-          <p class="eyebrow">Son uyumsuzluk</p>
-          <div class="metric-row"><span class="metric-sig" id="lastSig">—</span></div>
-          <p class="metric-note mono" id="lastSigAge">&nbsp;</p>
-          <div class="pending" id="pending" hidden></div>
-        </div>
+    <!-- Durum kartları: Günlük önce -->
+    <section class="status" id="status" aria-live="polite"></section>
+
+    <!-- Bildirim -->
+    <section class="alerts">
+      <p>Uyumsuzluk oluşmaya başladığında ve onaylandığında haber al.</p>
+      <div class="alert-actions">
+        <a class="btn primary" id="tgBtn" href="#" target="_blank" rel="noopener" hidden>Telegram kanalına katıl</a>
+        <button class="btn" id="notifyBtn" type="button">Tarayıcı bildirimi aç</button>
       </div>
+      <p class="note" id="notifyNote"></p>
     </section>
 
-    <!-- Bildirimler -->
-    <section class="wrap" id="bildirim">
-      <div class="alerts">
-        <div>
-          <h2>Uyumsuzluk oluştuğu an haberin olsun.</h2>
-          <p>Oluşmaya başladığında “oluşuyor”, onaylandığında “onaylandı” bildirimi gelir. 1 saat, 4 saat, günlük ve haftalık periyotlar 10 dakikada bir taranır.</p>
-        </div>
-        <div class="alert-actions">
-          <a class="btn solid" id="tgBtn" href="#" target="_blank" rel="noopener" hidden>Telegram kanalına katıl →</a>
-          <a class="btn" id="dcBtn" href="#" target="_blank" rel="noopener" lang="en" hidden>Discord</a>
-          <button class="btn" id="notifyBtn" type="button" aria-pressed="false">Tarayıcı bildirimi aç</button>
-        </div>
-        <p class="alert-note" id="notifyNote"></p>
-      </div>
-    </section>
-
-    <!-- Periyot matrisi -->
-    <section class="wrap block" id="matris">
+    <!-- Grafik -->
+    <section class="block">
       <div class="block-h">
-        <h2><span class="num">01</span> Periyot matrisi</h2>
-        <button class="link" id="scanBtn" type="button">Yenile ↻</button>
+        <h2>Grafik · <span id="chartTf">Günlük</span></h2>
+        <div class="tabs" id="tabs"></div>
       </div>
-      <div class="matrix" id="scanner"></div>
+      <div class="chart" id="tv"></div>
+      <p class="note">Grafik TradingView'den: <span id="tvSym"></span>. Uyumsuzluklar aynı kontratın verisiyle hesaplanır.</p>
     </section>
 
-    <!-- Kontroller + grafik -->
-    <section class="wrap block" id="grafik">
-      <div class="block-h">
-        <h2><span class="num">02</span> Grafik</h2>
-        <span class="block-meta mono" id="rsiHover"></span>
-      </div>
-
-      <div class="toolbar">
-        <div class="tabs" id="tfSeg" aria-label="Zaman dilimi"></div>
-        <div class="tabs" id="unitSeg" aria-label="Birim">
-          <button data-unit="usd" class="on">Ons $</button>
-          <button data-unit="try">Gram ₺</button>
-        </div>
-        <div class="toggles" id="typeChips"></div>
-      </div>
-
-      <div class="notice" id="notice" hidden></div>
-
-      <div class="chart-frame">
-        <div id="priceChart" class="chart price"></div>
-        <div class="rsi-label"><span>RSI</span></div>
-        <div id="rsiChart" class="chart rsi"></div>
-      </div>
-      <p class="source" id="source">&nbsp;</p>
-
-      <details class="settings">
-        <summary>Parametreler <span>+</span></summary>
-        <div class="settings-grid">
-          <label>RSI periyodu <input type="number" id="optPeriod" min="2" max="50" value="14"></label>
-          <label>Pivot sol <input type="number" id="optLeft" min="1" max="20" value="5"></label>
-          <label>Pivot sağ <input type="number" id="optRight" min="1" max="20" value="5"></label>
-          <label>Min. aralık <input type="number" id="optMin" min="1" max="200" value="5"></label>
-          <label>Maks. aralık <input type="number" id="optMax" min="5" max="300" value="60"></label>
-          <label class="file">CSV yükle <input type="file" id="csvFile" accept=".csv,.txt"></label>
-          <button class="link" id="resetBtn" type="button">Varsayılana dön</button>
-        </div>
-        <p class="fine">CSV başlığında <code>date, open, high, low, close</code> (veya tarih, açılış, yüksek, düşük, kapanış) sütunları olmalı. Canlı veriye dönmek için bir zaman dilimi seçin.</p>
-      </details>
-    </section>
-
-    <!-- Kayıt -->
-    <section class="wrap block" id="kayit">
-      <div class="block-h">
-        <h2><span class="num">03</span> Uyumsuzluk kaydı</h2>
-        <span class="block-meta mono" id="sigCount"></span>
-      </div>
+    <!-- Liste -->
+    <section class="block">
+      <div class="block-h"><h2>Son uyumsuzluklar · <span id="listTf">Günlük</span></h2></div>
       <div class="table-wrap">
-        <table class="sigs">
-          <thead><tr><th>Tür</th><th>Tarih</th><th class="r">Fiyat</th><th class="r">RSI</th><th class="r">Geçen</th></tr></thead>
-          <tbody id="sigBody"></tbody>
+        <table class="list">
+          <thead><tr><th>Tür</th><th>Tarih</th><th>Fiyat</th><th>RSI</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="4" class="empty">Yükleniyor…</td></tr></tbody>
         </table>
       </div>
     </section>
 
-    <!-- Rehber -->
-    <section class="wrap block" id="rehber">
-      <div class="block-h"><h2><span class="num">04</span> Rehber</h2></div>
-      <p class="lead">Uyumsuzluk, fiyatın söylediğiyle momentumun söylediği arasındaki farktır. <em>Normal</em> uyumsuzluk yorulan bir hareketi, <em>gizli</em> uyumsuzluk ise dinlenen bir trendi işaret eder.</p>
-      <div class="guide" id="learnCards"></div>
+    <!-- Kısa rehber -->
+    <section class="block">
+      <div class="block-h"><h2>Ne anlama geliyor?</h2></div>
+      <ul class="guide">
+        <li><i style="--c:var(--bull)"></i><b>Pozitif</b> Fiyat daha düşük dip, RSI daha yüksek dip. Düşüş zayıflıyor, yukarı dönüş olabilir.</li>
+        <li><i style="--c:var(--bear)"></i><b>Negatif</b> Fiyat daha yüksek tepe, RSI daha düşük tepe. Yükseliş zayıflıyor, aşağı dönüş olabilir.</li>
+        <li><i style="--c:var(--hbull)"></i><b>Gizli pozitif</b> Fiyat daha yüksek dip, RSI daha düşük dip. Yükseliş trendi devam edebilir.</li>
+        <li><i style="--c:var(--hbear)"></i><b>Gizli negatif</b> Fiyat daha düşük tepe, RSI daha yüksek tepe. Düşüş trendi devam edebilir.</li>
+      </ul>
+      <p class="note"><b>Oluşuyor:</b> ikinci dip/tepe görüldü ama henüz onaylanmadı (5 mum beklenir); fiyat yeni dip/tepe yaparsa iptal olabilir. <b>Onaylandı:</b> uyumsuzluk kesinleşti.</p>
     </section>
+
+    <p class="disclaimer">Eğitim ve bilgilendirme amaçlıdır, yatırım tavsiyesi değildir. RSI 14 · pivot 5/5 · veri: XAGUSDT perpetual.</p>
   </main>
 
-  <footer class="foot">
-    <div class="wrap">
-      <p class="disclaimer">Bu sayfa eğitim ve bilgilendirme amaçlıdır, <b>yatırım tavsiyesi değildir</b>. Uyumsuzluk, pivot onayı için birkaç mum gecikmeyle oluşur ve tek başına işlem kararı için yeterli değildir. Gram ₺ fiyatı, ons fiyatı ve USDT/TRY kurundan yaklaşık olarak hesaplanır.</p>
-      <div class="foot-mark">RC<i>.</i></div>
-      <div class="foot-row mono"><span>© <span id="yr"></span> Rues Community</span><span>Ag · 47 · XAG</span></div>
-    </div>
-  </footer>
+  <footer class="foot"><div class="wrap">© <span id="yr"></span> RC · Rues Community</div></footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="js/config.js"></script>
   <script src="js/divergence.js"></script>
   <script src="js/data.js"></script>
