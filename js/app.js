@@ -8,6 +8,12 @@
   var FRESH_BARS = 10;                          // "yeni onaylandı" sayılacak süre (mum)
   var REFRESH_MS = 2 * 60 * 1000;
   var COLORS = { bull: 'var(--bull)', bear: 'var(--bear)', hbull: 'var(--hbull)', hbear: 'var(--hbear)' };
+  var MEANING = {
+    bull: 'Düşüş zayıflıyor, yukarı dönüş olabilir.',
+    bear: 'Yükseliş zayıflıyor, aşağı dönüş olabilir.',
+    hbull: 'Yükseliş trendi devam edebilir.',
+    hbear: 'Düşüş trendi devam edebilir.'
+  };
   var SHAPE = {
     bull: ['daha düşük dip', 'daha yüksek dip'],
     bear: ['daha yüksek tepe', 'daha düşük tepe'],
@@ -17,7 +23,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var results = {};           // tf -> { candles, closed, divs, pending, rsi }
-  var selected = '1d';
+  var selected = '1d', firstDraw = true;
 
   // --- Biçim -----------------------------------------------------------------
 
@@ -60,10 +66,22 @@
     return { kind: 'none', ev: last };
   }
 
+  // Önce sitenin sunucusundan (/api/status), olmazsa doğrudan borsadan
   function loadAll() {
-    return Promise.all(ORDER.map(function (tf) {
-      return API.loadSilver(tf).then(function (d) { results[tf] = analyze(tf, d); }, function (e) { results[tf] = { error: e.message }; });
-    })).then(render);
+    return fetch('/api/status').then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (j) {
+      ORDER.forEach(function (tf) {
+        var t = j.timeframes && j.timeframes[tf];
+        if (!t || t.error) throw new Error(tf + ': ' + (t ? t.error : 'yok'));
+        results[tf] = analyze(tf, { candles: t.candles.map(function (k) { return { time: k[0], open: k[1], high: k[2], low: k[3], close: k[4] }; }) });
+      });
+    }).catch(function () {
+      return Promise.all(ORDER.map(function (tf) {
+        return API.loadSilver(tf).then(function (d) { results[tf] = analyze(tf, d); }, function (e) { results[tf] = { error: e.message }; });
+      }));
+    }).then(render);
   }
 
   // --- Çizim -----------------------------------------------------------------
@@ -105,6 +123,7 @@
       ? 'Son güncelleme ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }) + ' · her 2 dakikada yenilenir'
       : 'Veriye şu an ulaşılamıyor, birazdan tekrar denenecek.';
     renderList();
+    drawChart(firstDraw); firstDraw = false;
     notifyCheck();
   }
 
@@ -122,32 +141,89 @@
     }).join('');
   }
 
-  // --- TradingView grafiği ---------------------------------------------------
+  // --- Grafik (TradingView Lightweight Charts) -----------------------------
 
-  var tvLoading = null;
-  function loadTv() {
-    if (window.TradingView) return Promise.resolve();
-    if (!tvLoading) tvLoading = new Promise(function (ok, fail) {
-      var s = document.createElement('script');
-      s.src = 'https://s3.tradingview.com/tv.js';
-      s.onload = ok; s.onerror = fail;
-      document.head.appendChild(s);
-    });
-    return tvLoading;
-  }
-  function drawChart() {
-    var sym = CFG.tvSymbol || 'BINANCE:XAGUSDT.P';
-    $('tvSym').textContent = sym;
-    $('chartTf').textContent = TF[selected].label;
-    loadTv().then(function () {
-      $('tv').innerHTML = '';
-      new window.TradingView.widget({
-        container_id: 'tv', autosize: true, symbol: sym, interval: TF[selected].tv,
-        timezone: 'Europe/Istanbul', theme: 'dark', style: '1', locale: 'tr',
-        studies: ['RSI@tv-basicstudies'], hide_side_toolbar: true, allow_symbol_change: false,
-        save_image: false, backgroundColor: '#151517'
+  var TZ = 3 * 3600;   // grafikte Türkiye saati
+  var HEX = { bull: '#4ade80', bear: '#f87171', hbull: '#60a5fa', hbear: '#fbbf24' };
+  var LWC = window.LightweightCharts, pc = null, rc = null, candleS = null, rsiS = null, lines = [];
+
+  function initCharts() {
+    if (!LWC || pc) return !!pc;
+    var base = {
+      autoSize: true,
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9a9a97', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12 },
+      grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.04)' } },
+      rightPriceScale: { borderVisible: false, minimumWidth: 64 },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4 },
+      crosshair: { mode: 0 },
+      localization: { locale: 'tr-TR', priceFormatter: function (v) { return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); } }
+    };
+    pc = LWC.createChart($('priceChart'), base);
+    rc = LWC.createChart($('rsiChart'), base);
+    candleS = pc.addCandlestickSeries({ upColor: '#26a69a', downColor: '#ef5350', borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350' });
+    rsiS = rc.addLineSeries({ color: '#a78bfa', lineWidth: 2, priceLineVisible: false });
+    rsiS.applyOptions({ autoscaleInfoProvider: function () { return { priceRange: { minValue: 0, maxValue: 100 } }; } });
+    [70, 30].forEach(function (v) { rsiS.createPriceLine({ price: v, color: 'rgba(255,255,255,.25)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false }); });
+    var busy = false;
+    function link(a, b) {
+      a.timeScale().subscribeVisibleLogicalRangeChange(function (r) {
+        if (busy || !r) return; busy = true; b.timeScale().setVisibleLogicalRange(r); busy = false;
       });
-    }).catch(function () { $('tv').innerHTML = '<p class="note" style="padding:20px">TradingView grafiği yüklenemedi.</p>'; });
+    }
+    link(pc, rc); link(rc, pc);
+    return true;
+  }
+
+  function addLine(chart, e, a, b) {
+    var s = chart.addLineSeries({
+      color: HEX[e.type], lineWidth: 3, lineStyle: e.potential ? 1 : (TYPES[e.type].hidden ? 2 : 0),
+      lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false
+    });
+    s.setData([{ time: e.from.time + TZ, value: a }, { time: e.to.time + TZ, value: b }]);
+    lines.push([chart, s]);
+  }
+
+  function drawChart(fit) {
+    $('chartTf').textContent = TF[selected].label;
+    $('tvLink').href = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(CFG.tvSymbol || 'BINANCE:XAGUSDT.P');
+    var r = results[selected];
+    renderInfo(r);
+    if (!r || r.error || !initCharts()) return;
+    var c = r.candles, rsi = D.rsi(c.map(function (x) { return x.close; }), 14);
+    candleS.setData(c.map(function (x) { return { time: x.time + TZ, open: x.open, high: x.high, low: x.low, close: x.close }; }));
+    rsiS.setData(c.map(function (x, i) { return rsi[i] == null ? { time: x.time + TZ } : { time: x.time + TZ, value: rsi[i] }; }));
+    lines.forEach(function (l) { l[0].removeSeries(l[1]); }); lines = [];
+    var events = r.divs.concat(r.pending), markers = [], recent = events.slice(-4);
+    events.forEach(function (e) {
+      addLine(pc, e, e.from.price, e.to.price);
+      addLine(rc, e, e.from.rsi, e.to.rsi);
+      var low = TYPES[e.type].side === 'low';
+      markers.push({
+        time: e.to.time + TZ, position: low ? 'belowBar' : 'aboveBar', color: HEX[e.type],
+        shape: e.potential ? 'circle' : (low ? 'arrowUp' : 'arrowDown'),
+        text: recent.indexOf(e) >= 0 ? label(e.type) + (e.potential ? ' (oluşuyor)' : '') : TYPES[e.type].short
+      });
+    });
+    markers.sort(function (a, b) { return a.time - b.time; });
+    candleS.setMarkers(markers);
+    if (fit) {
+      var n = c.length;
+      pc.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 150), to: n + 4 });
+    }
+  }
+
+  /** Grafiğin üstünde: bu periyotta şu an ne var, düz cümleyle. */
+  function renderInfo(r) {
+    var el = $('chartInfo');
+    if (!r || r.error) { el.innerHTML = ''; return; }
+    var st = stateOf(r), e = st.ev;
+    if (!e) { el.style.removeProperty('--c'); el.innerHTML = TF[selected].label + ' grafikte henüz uyumsuzluk yok.'; return; }
+    el.style.setProperty('--c', COLORS[e.type]);
+    var when = st.kind === 'pot' ? 'şu an <b>oluşuyor</b> (onaya ' + e.barsLeft + ' mum)' : st.kind === 'new' ? 'yeni <b>onaylandı</b>' : 'en son ' + date(e.to.time, selected) + ' tarihinde görüldü';
+    el.innerHTML = '<b>' + label(e.type) + ' uyumsuzluk</b> ' + when + '. ' +
+      'Fiyat ' + money(e.from.price) + ' → ' + money(e.to.price) + ' (' + SHAPE[e.type][0] + '), ' +
+      'RSI ' + num1(e.from.rsi) + ' → ' + num1(e.to.rsi) + ' (' + SHAPE[e.type][1] + '). ' +
+      MEANING[e.type] + ' Grafikte ' + date(e.from.time, selected) + ' ile ' + date(e.to.time, selected) + ' arasındaki çizgi.';
   }
 
   function renderTabs() {
@@ -159,7 +235,7 @@
   function select(tf) {
     if (!TF[tf] || tf === selected) return;
     selected = tf;
-    renderTabs(); drawChart(); renderList();
+    renderTabs(); drawChart(true); renderList();
     $('status').innerHTML = ORDER.map(card).join('');
   }
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('[data-tf]'); if (b) select(b.getAttribute('data-tf')); });
@@ -214,7 +290,7 @@
 
   if (CFG.telegramUrl) { $('tgBtn').href = CFG.telegramUrl; $('tgBtn').hidden = false; }
   $('yr').textContent = new Date().getFullYear();
-  renderTabs(); renderNotify(); drawChart();
+  renderTabs(); renderNotify();
   $('status').innerHTML = ORDER.map(card).join('');
   loadAll();
   setInterval(function () { if (!document.hidden) loadAll(); }, REFRESH_MS);

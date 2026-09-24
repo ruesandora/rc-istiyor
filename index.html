@@ -43,8 +43,20 @@
         <h2>Grafik · <span id="chartTf">Günlük</span></h2>
         <div class="tabs" id="tabs"></div>
       </div>
-      <div class="chart" id="tv"></div>
-      <p class="note">Grafik TradingView'den: <span id="tvSym"></span>. Uyumsuzluklar aynı kontratın verisiyle hesaplanır.</p>
+      <div class="info" id="chartInfo"></div>
+      <div class="chart">
+        <div id="priceChart" class="chart-p"></div>
+        <div class="rsi-label">RSI 14</div>
+        <div id="rsiChart" class="chart-r"></div>
+      </div>
+      <div class="legend">
+        <span><i style="--c:var(--bull)"></i>Pozitif</span>
+        <span><i style="--c:var(--bear)"></i>Negatif</span>
+        <span><i class="dash" style="--c:var(--hbull)"></i>Gizli pozitif</span>
+        <span><i class="dash" style="--c:var(--hbear)"></i>Gizli negatif</span>
+        <span><i class="dot" style="--c:var(--text-2)"></i>Noktalı = oluşuyor</span>
+      </div>
+      <p class="note">Çizgiler iki dip (veya iki tepe) arasını birleştirir: üstte fiyat, altta RSI. Veri: Binance XAGUSDT perpetual · <a id="tvLink" href="#" target="_blank" rel="noopener">TradingView'de aç →</a></p>
     </section>
 
     <!-- Liste -->
@@ -75,6 +87,7 @@
 
   <footer class="foot"><div class="wrap">© <span id="yr"></span> RC · Rues Community</div></footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
   <script src="js/config.js"></script>
   <script src="js/divergence.js"></script>
   <script src="js/data.js"></script>
